@@ -2,17 +2,29 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const cors = require('cors');
+const http = require('http');
+const { Server } = require('socket.io');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: '*' }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Supabase client (ใช้ service role key ฝั่งเซิร์ฟเวอร์เท่านั้น)
+// Serve root index.html (repo keeps index.html at project root)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Supabase client (service role key on server only)
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -22,7 +34,7 @@ const BUCKET = process.env.SUPABASE_BUCKET || 'calibration';
 // multer memory storage
 const upload = multer({ storage: multer.memoryStorage() });
 
-// GET: อ่านรายการทั้งหมด เรียงวันที่ใหม่ก่อน
+// GET: list all records ordered by date desc
 app.get('/api/records', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -31,7 +43,6 @@ app.get('/api/records', async (req, res) => {
       .order('date', { ascending: false });
     if (error) throw error;
 
-    // map ให้สอดคล้องกับ UI เดิม (_id และ image)
     const mapped = (data || []).map(r => ({
       _id: r.id,
       machine: r.machine,
@@ -47,7 +58,7 @@ app.get('/api/records', async (req, res) => {
   }
 });
 
-// POST: อัปโหลดรูปขึ้น Storage + บันทึกแถวใน DB
+// POST: upload optional image + insert row
 app.post('/api/records', upload.single('image'), async (req, res) => {
   try {
     const { machine, volume, date, status, timestamp } = req.body;
@@ -69,10 +80,9 @@ app.post('/api/records', upload.single('image'), async (req, res) => {
         });
       if (upErr) throw upErr;
 
-      // bucket public → ได้ URL ตรง
+      // If bucket is public, use public URL. If private, switch to createSignedUrl.
       const { data } = supabase.storage.from(BUCKET).getPublicUrl(file_path);
       image_url = data.publicUrl;
-      // ถ้าเป็น private ให้ใช้ createSignedUrl แทน
     }
 
     const { data: inserted, error: dbErr } = await supabase
@@ -90,7 +100,7 @@ app.post('/api/records', upload.single('image'), async (req, res) => {
       .single();
     if (dbErr) throw dbErr;
 
-    res.status(201).json({
+    const payload = {
       _id: inserted.id,
       machine: inserted.machine,
       volume: inserted.volume,
@@ -98,45 +108,83 @@ app.post('/api/records', upload.single('image'), async (req, res) => {
       status: inserted.status,
       image: inserted.image_url || null,
       timestamp: inserted.timestamp
-    });
+    };
+
+    io.emit('records-updated', { type: 'insert', record: payload });
+    res.status(201).json(payload);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// DELETE: ลบเอกสาร + ไฟล์
+// DELETE by id: remove row + storage file
 app.delete('/api/records/:id', async (req, res) => {
   try {
     const id = req.params.id;
 
-    // หา path ไฟล์ก่อน
     const { data: rows, error: qErr } = await supabase
       .from('records')
-      .select('file_path')
+      .select('file_path, machine')
       .eq('id', id)
       .limit(1);
     if (qErr) throw qErr;
-
     const filePath = rows?.[0]?.file_path;
+    const machine = rows?.[0]?.machine;
 
-    // ลบ DB
     const { error: delErr } = await supabase
       .from('records')
       .delete()
       .eq('id', id);
     if (delErr) throw delErr;
 
-    // ลบไฟล์ใน Storage ถ้ามี
     if (filePath) {
       await supabase.storage.from(BUCKET).remove([filePath]);
     }
 
+    io.emit('records-updated', { type: 'delete', id, machine });
     res.json({ message: 'Record deleted' });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-app.listen(PORT, () => {
+// DELETE many by machine (bulk)
+app.delete('/api/records', async (req, res) => {
+  try {
+    const { machine } = req.query;
+    if (!machine) return res.status(400).json({ error: 'machine is required' });
+
+    // fetch file paths for that machine
+    const { data: rows, error: qErr } = await supabase
+      .from('records')
+      .select('id, file_path')
+      .eq('machine', machine);
+    if (qErr) throw qErr;
+
+    // delete DB rows
+    const { error: delErr } = await supabase
+      .from('records')
+      .delete()
+      .eq('machine', machine);
+    if (delErr) throw delErr;
+
+    // delete files
+    const paths = (rows || []).map(r => r.file_path).filter(Boolean);
+    if (paths.length) {
+      await supabase.storage.from(BUCKET).remove(paths);
+    }
+
+    io.emit('records-updated', { type: 'bulk-delete', machine });
+    res.json({ message: `Deleted ${rows?.length || 0} records for ${machine}` });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+io.on('connection', (socket) => {
+  // optional handshake logs
+});
+
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
