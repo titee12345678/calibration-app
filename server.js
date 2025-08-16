@@ -51,7 +51,8 @@ app.get('/api/records', async (req, res) => {
       status: r.status,
       image: r.image_url || null,
       timestamp: r.timestamp || new Date(r.created_at).toLocaleString('th-TH'),
-      calibrator: r.calibrator
+      calibrator: r.calibrator,
+      notes: r.notes || null // Add notes field
     }));
     res.json(mapped);
   } catch (e) {
@@ -62,7 +63,7 @@ app.get('/api/records', async (req, res) => {
 // POST: upload optional image + insert row
 app.post('/api/records', upload.single('image'), async (req, res) => {
   try {
-    const { machine, volume, date, status, timestamp, calibrator } = req.body;
+    const { machine, volume, date, status, timestamp, calibrator, notes } = req.body; // Add notes
 
     let image_url = null;
     let file_path = null;
@@ -96,6 +97,7 @@ app.post('/api/records', upload.single('image'), async (req, res) => {
         image_url,
         file_path,
         calibrator,
+        notes,         // Add notes to insert object
         timestamp: timestamp || new Date().toLocaleString('th-TH')
       })
       .select()
@@ -110,7 +112,8 @@ app.post('/api/records', upload.single('image'), async (req, res) => {
       status: inserted.status,
       image: inserted.image_url || null,
       timestamp: inserted.timestamp,
-      calibrator: inserted.calibrator
+      calibrator: inserted.calibrator,
+      notes: inserted.notes // Add notes to payload
     };
 
     io.emit('records-updated', { type: 'insert', record: payload });
