@@ -4,66 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ระบบบันทึกผลการสอบเทียบเครื่องมือ</title>
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body {
-      font-family: 'Sarabun', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh; padding: 20px;
-    }
-    .container { max-width:1200px; margin:0 auto; background:white; border-radius:20px;
-      box-shadow:0 20px 40px rgba(0,0,0,0.1); overflow:hidden; }
-    .header { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color:#fff; padding:30px; text-align:center; }
-    .header h1 { font-size:2.5rem; margin-bottom:10px; text-shadow:2px 2px 4px rgba(0, 0, 0, 0.3); }
-    .main-content { padding:30px; }
-    .form-section { background:#f8f9fa; border-radius:15px; padding:25px; margin-bottom:30px; border:2px solid #e9ecef; }
-    .form-group { margin-bottom:20px; }
-    label { display:block; font-weight:600; color:#333; margin-bottom:8px; font-size:1.05rem; }
-    select, input[type="date"], input[type="file"], textarea {
-      width:100%; padding:12px 15px; border:2px solid #ddd; border-radius:10px; background:#fff; font-size:1rem; transition:.2s;
-    }
-    .status-buttons { display:flex; gap:12px; margin-top:10px; flex-wrap:wrap; }
-    .status-btn { flex:1; min-width:140px; padding:12px 18px; border:2px solid #ddd; border-radius:10px; background:#fff; cursor:pointer;
-      font-size:1rem; font-weight:600; text-align:center; transition:.2s; }
-    .status-btn.pass { border-color:#28a745; color:#28a745; } .status-btn.pass.active { background:#28a745; color:#fff; }
-    .status-btn.fail { border-color:#dc3545; color:#dc3545; } .status-btn.fail.active { background:#dc3545; color:#fff; }
-    .submit-btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; border:none; padding:14px 24px;
-      border-radius:10px; font-size:1.05rem; font-weight:700; cursor:pointer; width:100%; margin-top:10px; }
-    .nav-tabs { display:flex; background:#f8f9fa; border-radius:10px; padding:6px; margin-bottom:20px; gap:6px; flex-wrap:wrap; }
-    .nav-tab { flex:1; min-width:180px; padding:12px 16px; text-align:center; background:transparent; border:none; border-radius:8px;
-      cursor:pointer; font-weight:700; font-size:1rem; transition:.2s; color:#555; }
-    .nav-tab.active { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color:#fff; box-shadow:0 2px 10px rgba(79,172,254,.3); }
-    .tab-content { display:none; } .tab-content.active { display:block; }
-    .records-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap:16px; margin-top:16px; }
-    .record-card { background:#fff; border-radius:14px; padding:16px; border:2px solid #f0f0f0; box-shadow:0 5px 15px rgba(0,0,0,0.06); }
-    .record-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-    .status-badge { padding:6px 10px; border-radius:20px; font-weight:700; font-size:.9rem; }
-    .status-badge.pass { background:#d4edda; color:#155724; } .status-badge.fail { background:#f8d7da; color:#721c24; }
-    .summary-table { width:100%; border-collapse:collapse; background:#fff; border-radius:14px; overflow:hidden; }
-    .summary-table th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; padding:12px; }
-    .summary-table td { padding:10px; border-bottom:1px solid #f0f0f0; text-align:center; }
-    .summary-stats { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin:16px 0 20px; }
-    .stat-card { background:#fff; padding:18px; border-radius:14px; border:2px solid #f0f0f0; text-align:center; }
-    .stat-number { font-size:2rem; font-weight:800; }
-    .stat-total { color:#18d000; } .stat-pass { color:#28a745; } .stat-fail { color:#dc3545; } .stat-pending { color:#ffc107; }
-    .actions-row { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 15px; }
-    .btn { padding:10px 14px; border-radius:10px; border:none; cursor:pointer; font-weight:700; }
-    .btn-danger { background:#dc3545; color:#fff; } .btn-secondary { background:#6c757d; color:#fff; } .btn-success { background:#28a745; color:#fff; }
-    .btn-outline { background:#fff; border:2px solid #ddd; }
-    .image-preview { width:50px; height:50px; object-fit:cover; border-radius:8px; border:2px solid #ddd; cursor:pointer; }
-    .no-records { text-align:center; color:#666; padding:30px; }
-    /* modal */
-    .modal{ display:none; position:fixed; z-index:1000; inset:0; background:rgba(0,0,0,0.8); }
-    .modal-content{ background:#fff; margin:5% auto; padding:20px; border-radius:14px; width:92%; max-width:720px; position:relative; }
-    .close{ position:absolute; right:16px; top:10px; font-size:26px; cursor:pointer; color:#666; }
-    .modal-image{ width:100%; max-height:420px; object-fit:contain; border-radius:8px; }
-    @media (max-width: 768px){ .records-grid{ grid-template-columns:1fr; } .nav-tab{ min-width:auto; } }
-  </style>
+  <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
+  <div class="loader-overlay" id="loader">
+    <div class="loader"></div>
+  </div>
+
   <div class="container">
     <div class="header">
       <h1>📊 ระบบบันทึกผลการสอบเทียบ</h1>
@@ -72,10 +22,10 @@
 
     <div class="main-content">
       <div class="nav-tabs">
-        <button class="nav-tab active" onclick="switchTab(event,'add-record')">➕ เพิ่มข้อมูล</button>
-        <button class="nav-tab" onclick="switchTab(event,'records-list')">📋 ประวัติการสอบเทียบ</button>
-        <button class="nav-tab" onclick="switchTab(event,'machine-history')">🔍 ประวัติแต่ละเครื่อง</button>
-        <button class="nav-tab" onclick="switchTab(event,'summary')">📊 สรุปภาพรวม</button>
+        <button class="nav-tab active" data-tab="add-record">➕ เพิ่มข้อมูล</button>
+        <button class="nav-tab" data-tab="records-list">📋 ประวัติการสอบเทียบ</button>
+        <button class="nav-tab" data-tab="machine-history">🔍 ประวัติแต่ละเครื่อง</button>
+        <button class="nav-tab" data-tab="summary">📊 สรุปภาพรวม</button>
       </div>
 
       <div class="tab-content active" id="add-record">
@@ -101,8 +51,8 @@
           <div class="form-group">
             <label>ผลการสอบเทียบ:</label>
             <div class="status-buttons">
-              <div class="status-btn pass" onclick="selectStatus('pass')">✅ ผ่าน</div>
-              <div class="status-btn fail" onclick="selectStatus('fail')">❌ ไม่ผ่าน</div>
+              <div class="status-btn pass" data-status="pass">✅ ผ่าน</div>
+              <div class="status-btn fail" data-status="fail">❌ ไม่ผ่าน</div>
             </div>
           </div>
           <div class="form-group">
@@ -113,15 +63,41 @@
             <label for="image-upload">อัปโหลดรูปภาพ:</label>
             <input type="file" id="image-upload" accept="image/*">
           </div>
-          <button class="submit-btn" onclick="addRecord()">บันทึกข้อมูล</button>
+          <button class="submit-btn" id="add-record-btn">บันทึกข้อมูล</button>
         </div>
       </div>
 
       <div class="tab-content" id="records-list">
         <h2 style="margin-bottom:10px;">📋 ประวัติการสอบเทียบ</h2>
-        <div class="records-grid" id="records-grid">
-          <div class="no-records">ยังไม่มีข้อมูลการสอบเทียบ</div>
+        <div class="filters">
+            <div class="form-group">
+                <label for="filter-search">ค้นหาชื่อเครื่อง:</label>
+                <input type="text" id="filter-search" placeholder="เช่น DD50-1...">
+            </div>
+            <div class="form-group">
+                <label for="filter-status">สถานะ:</label>
+                <select id="filter-status">
+                    <option value="">ทั้งหมด</option>
+                    <option value="pass">ผ่าน</option>
+                    <option value="fail">ไม่ผ่าน</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="filter-calibrator">ผู้สอบเทียบ:</label>
+                <select id="filter-calibrator">
+                    <option value="">ทั้งหมด</option>
+                     <option value="จักรกฤษณ์">จักรกฤษณ์</option>
+                     <option value="อานนท์">อานนท์</option>
+                     <option value="สัมพันธ์">สัมพันธ์</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="filter-date">วันที่:</label>
+                <input type="date" id="filter-date">
+            </div>
         </div>
+        <div class="records-grid" id="records-grid">
+          </div>
       </div>
 
       <div class="tab-content" id="machine-history">
@@ -129,12 +105,11 @@
         <div class="actions-row">
           <div class="form-group" style="min-width:260px; flex:1;">
             <label for="history-machine-select">เลือกเครื่องย้อมเพื่อดูประวัติ:</label>
-            <select id="history-machine-select" onchange="showMachineHistory()"></select>
+            <select id="history-machine-select"></select>
           </div>
-          <button class="btn btn-danger" onclick="bulkDelete()">ลบข้อมูลทั้งเครื่อง</button>
-          <button class="btn btn-secondary" onclick="exportExcel()">⬇️ ส่งออกเป็น Excel</button>
+          <button class="btn btn-danger" id="bulk-delete-btn">ลบข้อมูลทั้งเครื่อง</button>
+          <button class="btn btn-secondary" id="export-excel-btn-1">⬇️ ส่งออกเป็น Excel</button>
         </div>
-
         <div id="machine-details" style="display:none;">
           <div style="background:#e3f2fd; border-left:5px solid #2196f3; border-radius:14px; padding:16px; margin-bottom:14px;">
             <h3 id="selected-machine-name" style="color:#1976d2; margin-bottom:8px;"></h3>
@@ -144,56 +119,41 @@
               <div><strong>สถานะล่าสุด:</strong> <span id="selected-machine-status"></span></div>
             </div>
           </div>
-
           <canvas id="machineTrend" height="120" style="margin:10px 0 20px;"></canvas>
-
           <div style="overflow-x:auto;">
             <table class="summary-table" id="machine-history-table">
               <thead>
                 <tr>
-                  <th>ครั้งที่</th>
-                  <th>วันที่สอบเทียบ</th>
-                  <th>ผลการสอบเทียบ</th>
-                  <th>ผู้สอบเทียบ</th>
-                  <th>วันที่บันทึก</th>
-                  <th>รูปภาพ</th>
-                  <th>การจัดการ</th>
+                  <th>ครั้งที่</th><th>วันที่สอบเทียบ</th><th>ผล</th><th>ผู้สอบเทียบ</th><th>วันที่บันทึก</th><th>รูปภาพ</th><th>การจัดการ</th>
                 </tr>
               </thead>
               <tbody id="machine-history-tbody"></tbody>
             </table>
           </div>
         </div>
-
         <div id="no-machine-selected" class="no-records">กรุณาเลือกเครื่องย้อมเพื่อดูประวัติการสอบเทียบ</div>
       </div>
 
       <div class="tab-content" id="summary">
         <h2 style="margin-bottom:10px;">📊 สรุปภาพรวมการสอบเทียบ</h2>
         <div class="actions-row">
-          <button class="btn btn-secondary" onclick="exportExcel()">⬇️ ส่งออกเป็น Excel</button>
+          <button class="btn btn-secondary" id="export-excel-btn-2">⬇️ ส่งออกเป็น Excel</button>
         </div>
         <div class="summary-stats">
           <div class="stat-card"><div class="stat-number stat-total" id="total-machines">0</div><div>เครื่องย้อมทั้งหมด</div></div>
-          <div class="stat-card"><div class="stat-number stat-pass" id="passed-machines">0</div><div>ผ่านการสอบเทียบ</div></div>
-          <div class="stat-card"><div class="stat-number stat-fail" id="failed-machines">0</div><div>ไม่ผ่านการสอบเทียบ</div></div>
-          <div class="stat-card"><div class="stat-number stat-pending" id="pending-machines">0</div><div>รอการสอบเทียบ</div></div>
+          <div class="stat-card"><div class="stat-number stat-pass" id="passed-machines">0</div><div>ผ่าน</div></div>
+          <div class="stat-card"><div class="stat-number stat-fail" id="failed-machines">0</div><div>ไม่ผ่าน</div></div>
+          <div class="stat-card"><div class="stat-number stat-pending" id="pending-machines">0</div><div>รอสอบเทียบ</div></div>
         </div>
-
         <div style="display:grid; grid-template-columns:1fr; gap:16px;">
           <canvas id="statusPie" height="120"></canvas>
           <canvas id="recordsByDay" height="140"></canvas>
         </div>
-
         <div style="margin-top:16px; overflow-x:auto;">
           <table class="summary-table" id="summary-table">
             <thead>
               <tr>
-                <th>เครื่องย้อม</th>
-                <th>ปริมาตร (ลิตร)</th>
-                <th>สถานะล่าสุด</th>
-                <th>วันที่สอบเทียบล่าสุด</th>
-                <th>จำนวนครั้งที่สอบเทียบ</th>
+                <th>เครื่องย้อม</th><th>ปริมาตร (ลิตร)</th><th>สถานะล่าสุด</th><th>วันที่ล่าสุด</th><th>จำนวนครั้ง</th>
               </tr>
             </thead>
             <tbody id="summary-tbody"></tbody>
@@ -202,384 +162,27 @@
       </div>
     </div>
 
-    <div id="recordModal" class="modal">
+    <div id="genericModal" class="modal">
       <div class="modal-content">
-        <span class="close" onclick="closeModal()">&times;</span>
-        <h2 id="modal-title">รายละเอียดการสอบเทียบ</h2>
+        <span class="close" id="genericModal-close">&times;</span>
+        <h2 id="modal-title"></h2>
         <div id="modal-body"></div>
       </div>
     </div>
+
+    <div id="alertModal" class="modal alert-modal">
+        <div class="modal-content">
+            <h2 id="alert-modal-title">ยืนยันการกระทำ</h2>
+            <p id="alert-modal-body" class="alert-modal-body">คุณแน่ใจหรือไม่?</p>
+            <div class="alert-modal-footer">
+                <button id="alert-modal-cancel" class="btn alert-btn-cancel">ยกเลิก</button>
+                <button id="alert-modal-confirm" class="btn alert-btn-confirm">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+
   </div>
 
-  <script>
-    // Machine master
-    const machines = {
-      'DD50-1': 800, 'DD50-2': 800, 'DD100': 900, 'DD200-1': 1800, 'DD200-2': 1800, 'DD600': 3960,
-      'DL2-1': 16, 'DL500-1': 5, 'DL500-2': 5, 'DL500-3': 5, 'DL500-4': 5,
-      'DL250-1': 3.5, 'DL250-2': 3.5, 'DL250-3': 3.5, 'DL250-4': 3.5,
-      'DL125-1': 2, 'DL125-2': 2, 'DL125-3': 2, 'DL125-4': 2,
-      'RK3-1': 26, 'RK3-2': 26, 'RK3-3': 26, 'RK3-4': 26, 'RK3-5': 26, 'RK3-6': 26,
-      'RK6-1': 44, 'RK6-2': 44, 'RK6-3': 44, 'RK6-4': 44, 'RK6-5': 44, 'RK6-6': 44,
-      'LX4': 60, 'LX5': 60, 'LX6': 60, 'LX7': 60, 'LX8': 60, 'LX9': 60, 'LX10': 60, 'LX11': 60, 'LX12': 60, 'LX13': 60, 'LX14': 60, 'LX15': 60, 'LX16': 60, 'LX17': 60,
-      'A5': 225, 'B6': 225, 'B7': 225, 'A4': 145, 'B1': 225, 'B5': 145
-    };
-
-    let selectedStatus = '';
-    let records = [];
-    let statusPieChart = null;
-    let recordsByDayChart = null;
-    let machineTrendChart = null;
-
-    // Socket.IO: realtime updates
-    const socket = io();
-    socket.on('records-updated', () => {
-      loadRecords(); // refresh on any change
-    });
-
-    function initializeMachines() {
-      const select = document.getElementById('machine-select');
-      const historySelect = document.getElementById('history-machine-select');
-      select.innerHTML = '<option value="">-- เลือกเครื่องย้อม --</option>';
-      historySelect.innerHTML = '<option value="">-- เลือกเครื่องย้อม --</option>';
-      Object.keys(machines).forEach(machine => {
-        const opt = new Option(machine, machine);
-        const opt2 = new Option(machine, machine);
-        select.add(opt);
-        historySelect.add(opt2);
-      });
-    }
-
-    function selectStatus(status) {
-      selectedStatus = status;
-      document.querySelectorAll('.status-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelector(`.status-btn.${status}`).classList.add('active');
-    }
-
-    async function loadRecords() {
-      try {
-        const res = await fetch('/api/records');
-        const data = await res.json();
-        records = data.map(rec => ({
-          id: rec._id, machine: rec.machine, volume: rec.volume, date: rec.date,
-          status: rec.status, image: rec.image || null, timestamp: rec.timestamp,
-          calibrator: rec.calibrator || '-', notes: rec.notes || null
-        }));
-        records.sort((a,b)=> new Date(b.date) - new Date(a.date));
-        renderRecords();
-        if (document.getElementById('summary').classList.contains('active')) {
-          updateSummary();
-          buildSummaryCharts();
-        }
-        if (document.getElementById('machine-history').classList.contains('active')) {
-          showMachineHistory(); // keep current view in sync
-        }
-      } catch (e) {
-        console.error('loadRecords', e);
-      }
-    }
-
-    function addRecord() {
-      const machine = document.getElementById('machine-select').value;
-      const date = document.getElementById('calibration-date').value;
-      const calibrator = document.getElementById('calibrator-select').value;
-      const notes = document.getElementById('notes').value;
-      const file = document.getElementById('image-upload').files[0];
-      if (!machine || !date || !selectedStatus || !calibrator) { alert('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
-
-      const fd = new FormData();
-      fd.append('machine', machine);
-      fd.append('volume', machines[machine]);
-      fd.append('date', date);
-      fd.append('status', selectedStatus);
-      fd.append('calibrator', calibrator);
-      fd.append('notes', notes);
-      fd.append('timestamp', new Date().toLocaleString('th-TH'));
-      if (file) fd.append('image', file);
-
-      fetch('/api/records', { method:'POST', body:fd })
-        .then(r => {
-          if (!r.ok) throw new Error('บันทึกข้อมูลไม่สำเร็จ');
-          return r.json();
-        })
-        .then(()=> {
-          clearForm();
-          alert('บันทึกข้อมูลสำเร็จ!'); // Show success popup
-          // no need to push to local; server will emit socket event and reload
-        })
-        .catch(err=> { console.error(err); alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล'); });
-    }
-
-    function renderRecords() {
-      const grid = document.getElementById('records-grid');
-      if (!records.length) { grid.innerHTML = '<div class="no-records">ยังไม่มีข้อมูลการสอบเทียบ</div>'; return; }
-      grid.innerHTML = records.map(r => `
-        <div class="record-card">
-          <div class="record-header">
-            <div style="font-weight:800;">${r.machine}</div>
-            <div class="status-badge ${r.status}">${r.status==='pass'?'ผ่าน':'ไม่ผ่าน'}</div>
-          </div>
-          <div style="line-height:1.6;">
-            <div><strong>ปริมาตร:</strong> ${r.volume} ลิตร</div>
-            <div><strong>วันที่สอบเทียบ:</strong> ${new Date(r.date).toLocaleDateString('th-TH')}</div>
-            <div><strong>ผู้สอบเทียบ:</strong> ${r.calibrator}</div>
-            <div><strong>บันทึกเมื่อ:</strong> ${r.timestamp}</div>
-            ${r.notes ? `<div><strong>หมายเหตุ:</strong> ${r.notes}</div>` : ''}
-          </div>
-          ${r.image ? `<img class="image-preview" style="width:100%;height:200px;margin-top:10px;object-fit:cover;border-radius:10px;" src="${r.image}" onclick="showImageModal('${r.image}')">` : ''}
-        </div>
-      `).join('');
-    }
-
-    function clearForm() {
-      document.getElementById('machine-select').value = '';
-      document.getElementById('calibrator-select').value = '';
-      document.getElementById('calibration-date').value = '';
-      document.getElementById('image-upload').value = '';
-      document.getElementById('notes').value = '';
-      selectedStatus = '';
-      document.querySelectorAll('.status-btn').forEach(btn => btn.classList.remove('active'));
-    }
-
-    function showMachineHistory() {
-      const selectedMachine = document.getElementById('history-machine-select').value;
-      const details = document.getElementById('machine-details');
-      const noSel = document.getElementById('no-machine-selected');
-      if (!selectedMachine) { details.style.display='none'; noSel.style.display='block'; return; }
-      details.style.display='block'; noSel.style.display='none';
-
-      const mRecs = records.filter(r => r.machine === selectedMachine);
-      const sorted = [...mRecs].sort((a,b)=> new Date(a.date) - new Date(b.date));
-      const latest = sorted[sorted.length-1];
-
-      document.getElementById('selected-machine-name').textContent = selectedMachine;
-      document.getElementById('selected-machine-volume').textContent = machines[selectedMachine];
-      document.getElementById('selected-machine-count').textContent = mRecs.length;
-      document.getElementById('selected-machine-status').innerHTML = latest
-        ? (latest.status==='pass' ? '<span class="stat-pass">✅ ผ่าน</span>' : '<span class="stat-fail">❌ ไม่ผ่าน</span>')
-        : '<span class="stat-pending">⏳ ยังไม่ได้สอบเทียบ</span>';
-
-      // table
-      const tbody = document.getElementById('machine-history-tbody');
-      if (!mRecs.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;color:#666;">ยังไม่มีประวัติการสอบเทียบสำหรับเครื่องนี้</td></tr>';
-      } else {
-        const desc = [...mRecs].sort((a,b)=> new Date(b.date) - new Date(a.date));
-        tbody.innerHTML = desc.map((r,i)=> `
-          <tr>
-            <td>${desc.length - i}</td>
-            <td>${new Date(r.date).toLocaleDateString('th-TH')}</td>
-            <td>${r.status==='pass'?'✅ ผ่าน':'❌ ไม่ผ่าน'}</td>
-            <td>${r.calibrator}</td>
-            <td style="font-size:.9rem;color:#666;">${r.timestamp}</td>
-            <td>${r.image ? `<img class="image-preview" src="${r.image}" onclick="showImageModal('${r.image}')">` : '-'}</td>
-            <td>
-              <button class="btn btn-outline" onclick="viewRecordDetails('${r.id}')">ดู</button>
-              <button class="btn btn-danger" onclick="deleteRecord('${r.id}')">ลบ</button>
-            </td>
-          </tr>
-        `).join('');
-      }
-
-      // chart: status over time (1 for pass, 0 for fail)
-      const labels = sorted.map(r => new Date(r.date).toLocaleDateString('th-TH'));
-      const values = sorted.map(r => r.status === 'pass' ? 1 : 0);
-      if (machineTrendChart) machineTrendChart.destroy();
-      const ctx = document.getElementById('machineTrend').getContext('2d');
-      machineTrendChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [{
-            label: 'แนวโน้มสถานะ (1=ผ่าน, 0=ไม่ผ่าน)',
-            data: values,
-            fill: false,
-            tension: 0.2,
-            pointRadius: 3
-          }]
-        },
-        options: {
-          scales: {
-            y: { suggestedMin: -0.1, suggestedMax: 1.1, ticks: { stepSize: 1 } }
-          }
-        }
-      });
-    }
-
-    function viewRecordDetails(id) {
-      const r = records.find(x => x.id === id);
-      if (!r) return;
-      document.getElementById('modal-title').textContent = `รายละเอียดการสอบเทียบ - ${r.machine}`;
-      document.getElementById('modal-body').innerHTML = `
-        <div style="line-height:1.8;">
-          <p><strong>เครื่องมือ:</strong> ${r.machine}</p>
-          <p><strong>ปริมาตร:</strong> ${r.volume} ลิตร</p>
-          <p><strong>วันที่สอบเทียบ:</strong> ${new Date(r.date).toLocaleDateString('th-TH')}</p>
-          <p><strong>ผลการสอบเทียบ:</strong> ${r.status==='pass'?'✅ ผ่าน':'❌ ไม่ผ่าน'}</p>
-          <p><strong>ผู้สอบเทียบ:</strong> ${r.calibrator}</p>
-          <p><strong>วันที่บันทึก:</strong> ${r.timestamp}</p>
-          ${r.notes ? `<p><strong>หมายเหตุ:</strong> ${r.notes}</p>` : ''}
-          ${r.image ? `<div style="margin-top:10px;"><img class="modal-image" src="${r.image}"></div>` : ''}
-        </div>`;
-      document.getElementById('recordModal').style.display = 'block';
-    }
-
-    function showImageModal(src) {
-      document.getElementById('modal-title').textContent = 'รูปภาพการสอบเทียบ';
-      document.getElementById('modal-body').innerHTML = `<img class="modal-image" src="${src}">`;
-      document.getElementById('recordModal').style.display = 'block';
-    }
-
-    function closeModal() { document.getElementById('recordModal').style.display='none'; }
-    window.addEventListener('click', (e)=> {
-      const modal = document.getElementById('recordModal');
-      if (e.target === modal) closeModal();
-    });
-
-    function deleteRecord(id) {
-      if (!confirm('ยืนยันลบข้อมูลนี้?')) return;
-      fetch(`/api/records/${id}`, { method:'DELETE' })
-        .then(res => { if (!res.ok) throw new Error('delete failed'); })
-        .catch(err => { console.error(err); alert('เกิดข้อผิดพลาดในการลบ'); });
-    }
-
-    function bulkDelete() {
-      const m = document.getElementById('history-machine-select').value;
-      if (!m) { alert('กรุณาเลือกเครื่อง'); return; }
-      if (!confirm(`ลบข้อมูลทั้งหมดของเครื่อง ${m}?`)) return;
-      fetch(`/api/records?machine=${encodeURIComponent(m)}`, { method:'DELETE' })
-        .then(res => res.json())
-        .then(resp => { alert(resp.message || 'ลบแล้ว'); })
-        .catch(err => { console.error(err); alert('เกิดข้อผิดพลาดในการลบแบบกลุ่ม'); });
-    }
-
-    // SUMMARY + CHARTS
-    function updateSummary() {
-      const totalMachines = Object.keys(machines).length;
-      const statusByMachine = {};
-      Object.keys(machines).forEach(m => statusByMachine[m] = { machine:m, volume:machines[m], status:'pending', lastDate:'-', count:0 });
-
-      records.forEach(r => {
-        const cur = statusByMachine[r.machine];
-        if (cur) {
-          cur.count++;
-          if (cur.lastDate === '-' || new Date(r.date) > new Date(cur.lastDate)) {
-            cur.lastDate = r.date;
-            cur.status = r.status;
-          }
-        }
-      });
-
-      let pass=0, fail=0, pending=0;
-      Object.values(statusByMachine).forEach(m => {
-        if (m.status === 'pass') pass++; else if (m.status === 'fail') fail++; else pending++;
-      });
-
-      document.getElementById('total-machines').textContent = totalMachines;
-      document.getElementById('passed-machines').textContent = pass;
-      document.getElementById('failed-machines').textContent = fail;
-      document.getElementById('pending-machines').textContent = pending;
-
-      const tbody = document.getElementById('summary-tbody');
-      tbody.innerHTML = Object.values(statusByMachine).map(m => `
-        <tr>
-          <td style="text-align:left;font-weight:700;">${m.machine}</td>
-          <td>${m.volume}</td>
-          <td>${m.status==='pass'?'✅ ผ่าน': m.status==='fail'?'❌ ไม่ผ่าน':'⏳ รอสอบเทียบ'}</td>
-          <td>${m.lastDate==='-'?'-': new Date(m.lastDate).toLocaleDateString('th-TH')}</td>
-          <td>${m.count}</td>
-        </tr>
-      `).join('');
-    }
-
-    function buildSummaryCharts() {
-      // Pie: counts by latest status across machines
-      const pass = +document.getElementById('passed-machines').textContent;
-      const fail = +document.getElementById('failed-machines').textContent;
-      const pending = +document.getElementById('pending-machines').textContent;
-      const pieCtx = document.getElementById('statusPie').getContext('2d');
-      if (statusPieChart) statusPieChart.destroy();
-      statusPieChart = new Chart(pieCtx, {
-        type:'pie',
-        data:{ labels:['ผ่าน','ไม่ผ่าน','รอสอบเทียบ'], datasets:[{ data:[pass, fail, pending] }] },
-        options:{ plugins:{ legend:{ position:'bottom' } } }
-      });
-
-      // Line: records per day
-      const byDay = {};
-      records.forEach(r => {
-        const d = new Date(r.date); const key = d.toISOString().slice(0,10);
-        byDay[key] = (byDay[key] || 0) + 1;
-      });
-      const dates = Object.keys(byDay).sort();
-      const values = dates.map(k => byDay[k]);
-      const lineCtx = document.getElementById('recordsByDay').getContext('2d');
-      if (recordsByDayChart) recordsByDayChart.destroy();
-      recordsByDayChart = new Chart(lineCtx, {
-        type:'line',
-        data:{ labels: dates.map(d => new Date(d).toLocaleDateString('th-TH')), datasets:[{ label:'จำนวนบันทึกต่อวัน', data: values, fill:false, tension:0.2, pointRadius:3 }] },
-        options:{ plugins:{ legend:{ display:true } }, scales:{ y:{ beginAtZero:true } } }
-      });
-    }
-
-    function exportExcel() {
-      // Sheet: Records
-      const recs = records.map(r => ({
-        id: r.id, เครื่อง: r.machine, ปริมาตรลิตร: r.volume, วันที่สอบเทียบ: r.date, ผล: r.status, ผู้สอบเทียบ: r.calibrator, หมายเหตุ: r.notes || '', เวลาบันทึก: r.timestamp, รูปภาพ: r.image || ''
-      }));
-      const ws1 = XLSX.utils.json_to_sheet(recs);
-
-      // Sheet: Summary (latest status per machine)
-      const statusByMachine = {};
-      Object.keys(machines).forEach(m => statusByMachine[m] = { เครื่อง:m, ปริมาตรลิตร:machines[m], สถานะล่าสุด:'pending', วันที่ล่าสุด:'-', จำนวนครั้ง:0 });
-      records.forEach(r => {
-        const cur = statusByMachine[r.machine];
-        if (!cur) return;
-        cur.จำนวนครั้ง++;
-        if (cur.วันที่ล่าสุด === '-' || new Date(r.date) > new Date(cur.วันที่ล่าสุด)) {
-          cur.วันที่ล่าสุด = r.date;
-          cur.สถานะล่าสุด = r.status;
-        }
-      });
-      const ws2 = XLSX.utils.json_to_sheet(Object.values(statusByMachine));
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws1, 'Records');
-      XLSX.utils.book_append_sheet(wb, ws2, 'Summary');
-      XLSX.writeFile(wb, `calibration-export-${new Date().toISOString().slice(0,10)}.xlsx`);
-    }
-
-    function switchTab(evt, tabName) {
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
-      document.getElementById(tabName).classList.add('active');
-      evt.target.classList.add('active');
-      if (tabName==='summary') { updateSummary(); buildSummaryCharts(); }
-      if (tabName==='machine-history') {
-        document.getElementById('history-machine-select').value = '';
-        document.getElementById('machine-details').style.display = 'none';
-        document.getElementById('no-machine-selected').style.display = 'block';
-      }
-    }
-
-    // Init
-document.addEventListener('DOMContentLoaded', () => {
-  try { initializeMachines(); } catch(e) { console.error('init machines', e); }
-  try { loadRecords(); } catch(e) { console.error('load records', e); }
-});
-</script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  try {
-    if (window.io) {
-      const s = window.io();
-      window.__socket = s;
-      s.on('records-updated', () => { loadRecords(); });
-    } else {
-      console.warn('Socket.IO client not found, running without realtime.');
-    }
-  } catch (err) { console.warn('Socket.IO init failed:', err); }
-  try { initializeMachines(); loadRecords(); } catch (e) { console.error('Init error:', e); }
-});
-</script>
+  <script src="app.js"></script>
 </body>
 </html>
