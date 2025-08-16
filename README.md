@@ -2,12 +2,13 @@
 
 ฟีเจอร์ใหม่
 - Realtime อัปเดตทันทีเมื่อมีการเพิ่ม/ลบข้อมูล (Socket.IO)
-- กราฟสรุปภาพรวม (Chart.js): 
-  - Pie แยกผ่าน/ไม่ผ่าน/รอสอบเทียบ 
+- กราฟสรุปภาพรวม (Chart.js):
+  - Pie แยกผ่าน/ไม่ผ่าน/รอสอบเทียบ
   - Line จำนวนบันทึกต่อวัน
 - กราฟแนวโน้มรายเครื่อง (1 = ผ่าน, 0 = ไม่ผ่าน) ในแท็บ "ประวัติแต่ละเครื่อง"
 - ลบข้อมูลแบบกลุ่มทั้งเครื่อง (Bulk delete)
 - ส่งออก Excel (.xlsx) ฝั่ง client (SheetJS) รวม 2 ชีต: Records และ Summary
+- เพิ่มช่องหมายเหตุ (Notes)
 
 ## การติดตั้ง
 1. สร้างตาราง `records` ใน Supabase
@@ -21,23 +22,7 @@
      image_url text,
      file_path text,
      timestamp text,
+     calibrator text,
+     notes text,
      created_at timestamp with time zone default now()
    );
-   ```
-2. สร้าง Storage bucket (เช่น `calibration`) และตั้ง Public (หรือใช้ Signed URL แทน)
-3. ตั้งค่าไฟล์ `.env`
-   ```env
-   PORT=3000
-   SUPABASE_URL=...
-   SUPABASE_SERVICE_ROLE_KEY=...
-   SUPABASE_BUCKET=calibration
-   ```
-4. ติดตั้งและรัน
-   ```bash
-   npm i
-   npm start
-   ```
-
-## หมายเหตุ
-- หาก Bucket เป็น private ให้เปลี่ยนไปใช้ `createSignedUrl` แทน `getPublicUrl` ขณะสร้างรูป
-- ไฟล์หน้าเว็บใช้ CDN ของ Chart.js / SheetJS และ client Socket.IO (ที่เสิร์ฟจากเซิร์ฟเวอร์เอง)
