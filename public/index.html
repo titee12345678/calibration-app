@@ -59,11 +59,8 @@
     .modal-image{ width:100%; max-height:420px; object-fit:contain; border-radius:8px; }
     @media (max-width: 768px){ .records-grid{ grid-template-columns:1fr; } .nav-tab{ min-width:auto; } }
   </style>
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- SheetJS (XLSX) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <!-- Socket.IO client -->
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
@@ -81,13 +78,21 @@
         <button class="nav-tab" onclick="switchTab(event,'summary')">📊 สรุปภาพรวม</button>
       </div>
 
-      <!-- Add Record -->
       <div class="tab-content active" id="add-record">
         <div class="form-section">
           <h2 style="margin-bottom:14px;">เพิ่มข้อมูลการสอบเทียบใหม่</h2>
           <div class="form-group">
             <label for="machine-select">เลือกเครื่องย้อม:</label>
             <select id="machine-select"></select>
+          </div>
+          <div class="form-group">
+            <label for="calibrator-select">ผู้สอบเทียบ:</label>
+            <select id="calibrator-select">
+              <option value="">-- เลือกผู้สอบเทียบ --</option>
+              <option value="จักรกฤษณ์">จักรกฤษณ์</option>
+              <option value="อานนท์">อานนท์</option>
+              <option value="สัมพันธ์">สัมพันธ์</option>
+            </select>
           </div>
           <div class="form-group">
             <label for="calibration-date">วันที่สอบเทียบ:</label>
@@ -108,7 +113,6 @@
         </div>
       </div>
 
-      <!-- Records List -->
       <div class="tab-content" id="records-list">
         <h2 style="margin-bottom:10px;">📋 ประวัติการสอบเทียบ</h2>
         <div class="records-grid" id="records-grid">
@@ -116,7 +120,6 @@
         </div>
       </div>
 
-      <!-- Machine History -->
       <div class="tab-content" id="machine-history">
         <h2 style="margin-bottom:10px;">🔍 ประวัติการสอบเทียบแต่ละเครื่อง</h2>
         <div class="actions-row">
@@ -147,6 +150,7 @@
                   <th>ครั้งที่</th>
                   <th>วันที่สอบเทียบ</th>
                   <th>ผลการสอบเทียบ</th>
+                  <th>ผู้สอบเทียบ</th>
                   <th>วันที่บันทึก</th>
                   <th>รูปภาพ</th>
                   <th>การจัดการ</th>
@@ -160,7 +164,6 @@
         <div id="no-machine-selected" class="no-records">กรุณาเลือกเครื่องย้อมเพื่อดูประวัติการสอบเทียบ</div>
       </div>
 
-      <!-- Summary -->
       <div class="tab-content" id="summary">
         <h2 style="margin-bottom:10px;">📊 สรุปภาพรวมการสอบเทียบ</h2>
         <div class="actions-row">
@@ -195,7 +198,6 @@
       </div>
     </div>
 
-    <!-- Modal -->
     <div id="recordModal" class="modal">
       <div class="modal-content">
         <span class="close" onclick="closeModal()">&times;</span>
@@ -255,7 +257,8 @@
         const data = await res.json();
         records = data.map(rec => ({
           id: rec._id, machine: rec.machine, volume: rec.volume, date: rec.date,
-          status: rec.status, image: rec.image || null, timestamp: rec.timestamp
+          status: rec.status, image: rec.image || null, timestamp: rec.timestamp,
+          calibrator: rec.calibrator || '-'
         }));
         records.sort((a,b)=> new Date(b.date) - new Date(a.date));
         renderRecords();
@@ -274,14 +277,16 @@
     function addRecord() {
       const machine = document.getElementById('machine-select').value;
       const date = document.getElementById('calibration-date').value;
+      const calibrator = document.getElementById('calibrator-select').value;
       const file = document.getElementById('image-upload').files[0];
-      if (!machine || !date || !selectedStatus) { alert('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
+      if (!machine || !date || !selectedStatus || !calibrator) { alert('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
 
       const fd = new FormData();
       fd.append('machine', machine);
       fd.append('volume', machines[machine]);
       fd.append('date', date);
       fd.append('status', selectedStatus);
+      fd.append('calibrator', calibrator);
       fd.append('timestamp', new Date().toLocaleString('th-TH'));
       if (file) fd.append('image', file);
 
@@ -306,6 +311,7 @@
           <div style="line-height:1.6;">
             <div><strong>ปริมาตร:</strong> ${r.volume} ลิตร</div>
             <div><strong>วันที่สอบเทียบ:</strong> ${new Date(r.date).toLocaleDateString('th-TH')}</div>
+            <div><strong>ผู้สอบเทียบ:</strong> ${r.calibrator}</div>
             <div><strong>บันทึกเมื่อ:</strong> ${r.timestamp}</div>
           </div>
           ${r.image ? `<img class="image-preview" style="width:100%;height:200px;margin-top:10px;object-fit:cover;border-radius:10px;" src="${r.image}" onclick="showImageModal('${r.image}')">` : ''}
@@ -315,6 +321,7 @@
 
     function clearForm() {
       document.getElementById('machine-select').value = '';
+      document.getElementById('calibrator-select').value = '';
       document.getElementById('calibration-date').value = '';
       document.getElementById('image-upload').value = '';
       selectedStatus = '';
@@ -342,7 +349,7 @@
       // table
       const tbody = document.getElementById('machine-history-tbody');
       if (!mRecs.length) {
-        tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;color:#666;">ยังไม่มีประวัติการสอบเทียบสำหรับเครื่องนี้</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;color:#666;">ยังไม่มีประวัติการสอบเทียบสำหรับเครื่องนี้</td></tr>';
       } else {
         const desc = [...mRecs].sort((a,b)=> new Date(b.date) - new Date(a.date));
         tbody.innerHTML = desc.map((r,i)=> `
@@ -350,6 +357,7 @@
             <td>${desc.length - i}</td>
             <td>${new Date(r.date).toLocaleDateString('th-TH')}</td>
             <td>${r.status==='pass'?'✅ ผ่าน':'❌ ไม่ผ่าน'}</td>
+            <td>${r.calibrator}</td>
             <td style="font-size:.9rem;color:#666;">${r.timestamp}</td>
             <td>${r.image ? `<img class="image-preview" src="${r.image}" onclick="showImageModal('${r.image}')">` : '-'}</td>
             <td>
@@ -395,6 +403,7 @@
           <p><strong>ปริมาตร:</strong> ${r.volume} ลิตร</p>
           <p><strong>วันที่สอบเทียบ:</strong> ${new Date(r.date).toLocaleDateString('th-TH')}</p>
           <p><strong>ผลการสอบเทียบ:</strong> ${r.status==='pass'?'✅ ผ่าน':'❌ ไม่ผ่าน'}</p>
+          <p><strong>ผู้สอบเทียบ:</strong> ${r.calibrator}</p>
           <p><strong>วันที่บันทึก:</strong> ${r.timestamp}</p>
           ${r.image ? `<div style="margin-top:10px;"><img class="modal-image" src="${r.image}"></div>` : ''}
         </div>`;
@@ -502,7 +511,7 @@
     function exportExcel() {
       // Sheet: Records
       const recs = records.map(r => ({
-        id: r.id, เครื่อง: r.machine, ปริมาตรลิตร: r.volume, วันที่สอบเทียบ: r.date, ผล: r.status, เวลาบันทึก: r.timestamp, รูปภาพ: r.image || ''
+        id: r.id, เครื่อง: r.machine, ปริมาตรลิตร: r.volume, วันที่สอบเทียบ: r.date, ผล: r.status, ผู้สอบเทียบ: r.calibrator, เวลาบันทึก: r.timestamp, รูปภาพ: r.image || ''
       }));
       const ws1 = XLSX.utils.json_to_sheet(recs);
 
