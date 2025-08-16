@@ -19,17 +19,34 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Serve root index.html (repo keeps index.html at project root)
+// Serve root index.html
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Supabase client (service role key on server only)
+// Supabase client
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 const BUCKET = process.env.SUPABASE_BUCKET || 'calibration';
+
+// Machine master data (managed on server)
+const machines = {
+  'DD50-1': 800, 'DD50-2': 800, 'DD100': 900, 'DD200-1': 1800, 'DD200-2': 1800, 'DD600': 3960,
+  'DL2-1': 16, 'DL500-1': 5, 'DL500-2': 5, 'DL500-3': 5, 'DL500-4': 5,
+  'DL250-1': 3.5, 'DL250-2': 3.5, 'DL250-3': 3.5, 'DL250-4': 3.5,
+  'DL125-1': 2, 'DL125-2': 2, 'DL125-3': 2, 'DL125-4': 2,
+  'RK3-1': 26, 'RK3-2': 26, 'RK3-3': 26, 'RK3-4': 26, 'RK3-5': 26, 'RK3-6': 26,
+  'RK6-1': 44, 'RK6-2': 44, 'RK6-3': 44, 'RK6-4': 44, 'RK6-5': 44, 'RK6-6': 44,
+  'LX4': 60, 'LX5': 60, 'LX6': 60, 'LX7': 60, 'LX8': 60, 'LX9': 60, 'LX10': 60, 'LX11': 60, 'LX12': 60, 'LX13': 60, 'LX14': 60, 'LX15': 60, 'LX16': 60, 'LX17': 60,
+  'A5': 225, 'B6': 225, 'B7': 225, 'A4': 145, 'B1': 225, 'B5': 145
+};
+
+// GET: list all machines
+app.get('/api/machines', (req, res) => {
+  res.json(machines);
+});
 
 // multer memory storage
 const upload = multer({ storage: multer.memoryStorage() });
@@ -52,7 +69,7 @@ app.get('/api/records', async (req, res) => {
       image: r.image_url || null,
       timestamp: r.timestamp || new Date(r.created_at).toLocaleString('th-TH'),
       calibrator: r.calibrator,
-      notes: r.notes || null // Add notes field
+      notes: r.notes || null
     }));
     res.json(mapped);
   } catch (e) {
@@ -63,7 +80,12 @@ app.get('/api/records', async (req, res) => {
 // POST: upload optional image + insert row
 app.post('/api/records', upload.single('image'), async (req, res) => {
   try {
-    const { machine, volume, date, status, timestamp, calibrator, notes } = req.body; // Add notes
+    const { machine, date, status, calibrator, notes } = req.body;
+    const volume = machines[machine] || null; // Get volume from server-side machine list
+
+    if (!volume) {
+        return res.status(400).json({ error: 'Invalid machine specified.' });
+    }
 
     let image_url = null;
     let file_path = null;
@@ -82,7 +104,6 @@ app.post('/api/records', upload.single('image'), async (req, res) => {
         });
       if (upErr) throw upErr;
 
-      // If bucket is public, use public URL. If private, switch to createSignedUrl.
       const { data } = supabase.storage.from(BUCKET).getPublicUrl(file_path);
       image_url = data.publicUrl;
     }
@@ -92,13 +113,13 @@ app.post('/api/records', upload.single('image'), async (req, res) => {
       .insert({
         machine,
         volume: Number(volume),
-        date,          // 'YYYY-MM-DD'
-        status,        // 'pass' | 'fail'
+        date,
+        status,
         image_url,
         file_path,
         calibrator,
-        notes,         // Add notes to insert object
-        timestamp: timestamp || new Date().toLocaleString('th-TH')
+        notes,
+        timestamp: new Date().toLocaleString('th-TH')
       })
       .select()
       .single();
@@ -113,7 +134,7 @@ app.post('/api/records', upload.single('image'), async (req, res) => {
       image: inserted.image_url || null,
       timestamp: inserted.timestamp,
       calibrator: inserted.calibrator,
-      notes: inserted.notes // Add notes to payload
+      notes: inserted.notes
     };
 
     io.emit('records-updated', { type: 'insert', record: payload });
@@ -160,21 +181,18 @@ app.delete('/api/records', async (req, res) => {
     const { machine } = req.query;
     if (!machine) return res.status(400).json({ error: 'machine is required' });
 
-    // fetch file paths for that machine
     const { data: rows, error: qErr } = await supabase
       .from('records')
       .select('id, file_path')
       .eq('machine', machine);
     if (qErr) throw qErr;
 
-    // delete DB rows
     const { error: delErr } = await supabase
       .from('records')
       .delete()
       .eq('machine', machine);
     if (delErr) throw delErr;
 
-    // delete files
     const paths = (rows || []).map(r => r.file_path).filter(Boolean);
     if (paths.length) {
       await supabase.storage.from(BUCKET).remove(paths);
@@ -186,6 +204,7 @@ app.delete('/api/records', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
 
 io.on('connection', (socket) => {
   // optional handshake logs
