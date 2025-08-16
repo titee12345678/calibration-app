@@ -19,7 +19,7 @@
     .form-section { background:#f8f9fa; border-radius:15px; padding:25px; margin-bottom:30px; border:2px solid #e9ecef; }
     .form-group { margin-bottom:20px; }
     label { display:block; font-weight:600; color:#333; margin-bottom:8px; font-size:1.05rem; }
-    select, input[type="date"], input[type="file"] {
+    select, input[type="date"], input[type="file"], textarea {
       width:100%; padding:12px 15px; border:2px solid #ddd; border-radius:10px; background:#fff; font-size:1rem; transition:.2s;
     }
     .status-buttons { display:flex; gap:12px; margin-top:10px; flex-wrap:wrap; }
@@ -104,6 +104,10 @@
               <div class="status-btn pass" onclick="selectStatus('pass')">✅ ผ่าน</div>
               <div class="status-btn fail" onclick="selectStatus('fail')">❌ ไม่ผ่าน</div>
             </div>
+          </div>
+          <div class="form-group">
+            <label for="notes">หมายเหตุ (ถ้ามี):</label>
+            <textarea id="notes" rows="3" placeholder="รายละเอียดเพิ่มเติม..."></textarea>
           </div>
           <div class="form-group">
             <label for="image-upload">อัปโหลดรูปภาพ:</label>
@@ -258,7 +262,7 @@
         records = data.map(rec => ({
           id: rec._id, machine: rec.machine, volume: rec.volume, date: rec.date,
           status: rec.status, image: rec.image || null, timestamp: rec.timestamp,
-          calibrator: rec.calibrator || '-'
+          calibrator: rec.calibrator || '-', notes: rec.notes || null
         }));
         records.sort((a,b)=> new Date(b.date) - new Date(a.date));
         renderRecords();
@@ -278,6 +282,7 @@
       const machine = document.getElementById('machine-select').value;
       const date = document.getElementById('calibration-date').value;
       const calibrator = document.getElementById('calibrator-select').value;
+      const notes = document.getElementById('notes').value;
       const file = document.getElementById('image-upload').files[0];
       if (!machine || !date || !selectedStatus || !calibrator) { alert('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
 
@@ -287,13 +292,18 @@
       fd.append('date', date);
       fd.append('status', selectedStatus);
       fd.append('calibrator', calibrator);
+      fd.append('notes', notes);
       fd.append('timestamp', new Date().toLocaleString('th-TH'));
       if (file) fd.append('image', file);
 
       fetch('/api/records', { method:'POST', body:fd })
-        .then(r=>r.json())
+        .then(r => {
+          if (!r.ok) throw new Error('บันทึกข้อมูลไม่สำเร็จ');
+          return r.json();
+        })
         .then(()=> {
           clearForm();
+          alert('บันทึกข้อมูลสำเร็จ!'); // Show success popup
           // no need to push to local; server will emit socket event and reload
         })
         .catch(err=> { console.error(err); alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล'); });
@@ -313,6 +323,7 @@
             <div><strong>วันที่สอบเทียบ:</strong> ${new Date(r.date).toLocaleDateString('th-TH')}</div>
             <div><strong>ผู้สอบเทียบ:</strong> ${r.calibrator}</div>
             <div><strong>บันทึกเมื่อ:</strong> ${r.timestamp}</div>
+            ${r.notes ? `<div><strong>หมายเหตุ:</strong> ${r.notes}</div>` : ''}
           </div>
           ${r.image ? `<img class="image-preview" style="width:100%;height:200px;margin-top:10px;object-fit:cover;border-radius:10px;" src="${r.image}" onclick="showImageModal('${r.image}')">` : ''}
         </div>
@@ -324,6 +335,7 @@
       document.getElementById('calibrator-select').value = '';
       document.getElementById('calibration-date').value = '';
       document.getElementById('image-upload').value = '';
+      document.getElementById('notes').value = '';
       selectedStatus = '';
       document.querySelectorAll('.status-btn').forEach(btn => btn.classList.remove('active'));
     }
@@ -405,6 +417,7 @@
           <p><strong>ผลการสอบเทียบ:</strong> ${r.status==='pass'?'✅ ผ่าน':'❌ ไม่ผ่าน'}</p>
           <p><strong>ผู้สอบเทียบ:</strong> ${r.calibrator}</p>
           <p><strong>วันที่บันทึก:</strong> ${r.timestamp}</p>
+          ${r.notes ? `<p><strong>หมายเหตุ:</strong> ${r.notes}</p>` : ''}
           ${r.image ? `<div style="margin-top:10px;"><img class="modal-image" src="${r.image}"></div>` : ''}
         </div>`;
       document.getElementById('recordModal').style.display = 'block';
@@ -511,7 +524,7 @@
     function exportExcel() {
       // Sheet: Records
       const recs = records.map(r => ({
-        id: r.id, เครื่อง: r.machine, ปริมาตรลิตร: r.volume, วันที่สอบเทียบ: r.date, ผล: r.status, ผู้สอบเทียบ: r.calibrator, เวลาบันทึก: r.timestamp, รูปภาพ: r.image || ''
+        id: r.id, เครื่อง: r.machine, ปริมาตรลิตร: r.volume, วันที่สอบเทียบ: r.date, ผล: r.status, ผู้สอบเทียบ: r.calibrator, หมายเหตุ: r.notes || '', เวลาบันทึก: r.timestamp, รูปภาพ: r.image || ''
       }));
       const ws1 = XLSX.utils.json_to_sheet(recs);
 
