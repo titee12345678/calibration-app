@@ -67,7 +67,7 @@ app.get('/api/records', async (req, res) => {
       date: r.date,
       status: r.status,
       image: r.image_url || null,
-      timestamp: r.timestamp || new Date(r.created_at).toLocaleString('th-TH'),
+      timestamp: r.timestamp || r.created_at,
       calibrator: r.calibrator,
       notes: r.notes || null
     }));
@@ -119,7 +119,7 @@ app.post('/api/records', upload.single('image'), async (req, res) => {
         file_path,
         calibrator,
         notes,
-        timestamp: new Date().toLocaleString('th-TH')
+        timestamp: new Date().toISOString()
       })
       .select()
       .single();
