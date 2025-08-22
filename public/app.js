@@ -1,3 +1,15 @@
+function getLocalISOStringForInput() {
+    const now = new Date();
+    const pad = (num) => String(num).padStart(2, '0');
+    const year = now.getFullYear();
+    const month = pad(now.getMonth() + 1);
+    const day = pad(now.getDate());
+    const hours = pad(now.getHours());
+    const minutes = pad(now.getMinutes());
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- STATE MANAGEMENT ---
     let machines = {};
@@ -79,9 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
             machines = machineData;
             populateMachineDropdowns();
         }
-        const now = new Date();
-        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-        document.getElementById('calibration-date').value = now.toISOString().slice(0, 16);
+        document.getElementById('calibration-date').value = getLocalISOStringForInput();
         await loadRecords();
     }
 
@@ -118,9 +128,9 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
               <div style="line-height:1.6;">
                 <div><strong>ปริมาตร:</strong> ${r.volume} ลิตร</div>
-                <div><strong>วันที่สอบเทียบ:</strong> ${new Date(r.date).toLocaleDateString('th-TH')}</div>
+                <div><strong>วันที่สอบเทียบ:</strong> ${new Date(r.date).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</div>
                 <div><strong>ผู้สอบเทียบ:</strong> ${r.calibrator || '-'}</div>
-                <div><strong>บันทึกเมื่อ:</strong> ${r.timestamp}</div>
+                <div><strong>บันทึกเมื่อ:</strong> ${new Date(r.timestamp).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</div>
                 ${r.notes ? `<div><strong>หมายเหตุ:</strong> ${r.notes}</div>` : ''}
               </div>
               ${r.image ? `<img class="image-preview" style="width:100%;height:200px;margin-top:10px;object-fit:cover;border-radius:10px;" src="${r.image}" alt="Calibration Image" data-img-src="${r.image}">` : ''}
@@ -160,9 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function clearForm() {
         document.getElementById('machine-select').value = '';
         document.getElementById('calibrator-select').value = '';
-        const now = new Date();
-        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-        document.getElementById('calibration-date').value = now.toISOString().slice(0, 16);
+        document.getElementById('calibration-date').value = getLocalISOStringForInput();
         document.getElementById('image-upload').value = '';
         document.getElementById('notes').value = '';
         selectedStatus = '';
@@ -171,19 +179,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function addRecord() {
       const machine = document.getElementById('machine-select').value;
-      const date = document.getElementById('calibration-date').value;
+      const localDateValue = document.getElementById('calibration-date').value;
       const calibrator = document.getElementById('calibrator-select').value;
       const notes = document.getElementById('notes').value;
       const file = document.getElementById('image-upload').files[0];
 
-      if (!machine || !date || !selectedStatus || !calibrator) {
+      if (!machine || !localDateValue || !selectedStatus || !calibrator) {
         showAlert('กรุณากรอกข้อมูลให้ครบถ้วน');
         return;
       }
 
+      const dateInUTC = new Date(localDateValue).toISOString();
+
       const fd = new FormData();
       fd.append('machine', machine);
-      fd.append('date', date);
+      fd.append('date', dateInUTC);
       fd.append('status', selectedStatus);
       fd.append('calibrator', calibrator);
       fd.append('notes', notes);
@@ -204,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const dateFilter = document.getElementById('filter-date').value;
 
         const filtered = records.filter(r => {
-            const dateMatch = !dateFilter || r.date === dateFilter;
+            const dateMatch = !dateFilter || r.date.startsWith(dateFilter);
             const machineMatch = !searchTerm || r.machine.toLowerCase().includes(searchTerm);
             const statusMatch = !statusFilter || r.status === statusFilter;
             const calibratorMatch = !calibratorFilter || r.calibrator === calibratorFilter;
@@ -247,10 +257,10 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.innerHTML = desc.map((r, i) => `
                 <tr>
                     <td>${desc.length - i}</td>
-                    <td>${new Date(r.date).toLocaleDateString('th-TH')}</td>
+                    <td>${new Date(r.date).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td>
                     <td>${r.status === 'pass' ? '✅ ผ่าน' : '❌ ไม่ผ่าน'}</td>
                     <td>${r.calibrator}</td>
-                    <td style="font-size:.9rem;color:#666;">${r.timestamp}</td>
+                    <td style="font-size:.9rem;color:#666;">${new Date(r.timestamp).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td>
                     <td>${r.image ? `<img class="image-preview" src="${r.image}" data-img-src="${r.image}">` : '-'}</td>
                     <td>
                         <button class="btn btn-outline" data-action="view" data-id="${r.id}">ดู</button>
@@ -317,7 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td style="text-align:left;font-weight:700;">${m.machine}</td>
           <td>${m.volume}</td>
           <td>${m.status==='pass'?'✅ ผ่าน': m.status==='fail'?'❌ ไม่ผ่าน':'⏳ รอสอบเทียบ'}</td>
-          <td>${m.lastDate==='-'?'-': new Date(m.lastDate).toLocaleDateString('th-TH')}</td>
+          <td>${m.lastDate==='-'?'-': new Date(m.lastDate).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td>
           <td>${m.count}</td>
         </tr>
       `).join('');
@@ -346,7 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Line Chart
         const byDay = records.reduce((acc, r) => {
-            const key = r.date;
+            const key = r.date.slice(0, 10); // Group by day (YYYY-MM-DD)
             acc[key] = (acc[key] || 0) + 1;
             return acc;
         }, {});
@@ -409,10 +419,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="line-height:1.8;">
               <p><strong>เครื่องมือ:</strong> ${r.machine}</p>
               <p><strong>ปริมาตร:</strong> ${r.volume} ลิตร</p>
-              <p><strong>วันที่สอบเทียบ:</strong> ${new Date(r.date).toLocaleDateString('th-TH')}</p>
+              <p><strong>วันที่สอบเทียบ:</strong> ${new Date(r.date).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
               <p><strong>ผลการสอบเทียบ:</strong> ${r.status === 'pass' ? '✅ ผ่าน' : '❌ ไม่ผ่าน'}</p>
               <p><strong>ผู้สอบเทียบ:</strong> ${r.calibrator}</p>
-              <p><strong>วันที่บันทึก:</strong> ${r.timestamp}</p>
+              <p><strong>วันที่บันทึก:</strong> ${new Date(r.timestamp).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
               ${r.notes ? `<p><strong>หมายเหตุ:</strong> ${r.notes}</p>` : ''}
               ${r.image ? `<div style="margin-top:10px;"><img class="modal-image" src="${r.image}" alt="Calibration image"></div>` : ''}
             </div>`;
@@ -423,8 +433,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function exportExcel() {
         const recs = records.map(r => ({
             'ID': r.id, 'เครื่อง': r.machine, 'ปริมาตร (ลิตร)': r.volume,
-            'วันที่สอบเทียบ': r.date, 'ผล': r.status, 'ผู้สอบเทียบ': r.calibrator,
-            'หมายเหตุ': r.notes || '', 'เวลาบันทึก': r.timestamp, 'รูปภาพ': r.image || ''
+            'วันที่สอบเทียบ': new Date(r.date).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }),
+            'ผล': r.status, 'ผู้สอบเทียบ': r.calibrator,
+            'หมายเหตุ': r.notes || '',
+            'เวลาบันทึก': new Date(r.timestamp).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }),
+            'รูปภาพ': r.image || ''
         }));
         const ws1 = XLSX.utils.json_to_sheet(recs);
 
@@ -439,7 +452,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 cur['สถานะล่าสุด'] = r.status;
             }
         });
-        const ws2 = XLSX.utils.json_to_sheet(Object.values(statusByMachine));
+        const summaryData = Object.values(statusByMachine).map(m => ({
+            ...m,
+            'วันที่ล่าสุด': m['วันที่ล่าสุด'] === '-' ? '-' : new Date(m['วันที่ล่าสุด']).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })
+        }))
+        const ws2 = XLSX.utils.json_to_sheet(summaryData);
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws1, 'Records');
