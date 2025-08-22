@@ -6,18 +6,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let statusPieChart = null;
     let recordsByDayChart = null;
     let machineTrendChart = null;
-    
+
     // --- DOM ELEMENTS ---
     const loader = document.getElementById('loader');
     const machineSelect = document.getElementById('machine-select');
     const historyMachineSelect = document.getElementById('history-machine-select');
     const recordsGrid = document.getElementById('records-grid');
-    
+
     // --- UTILS ---
     const showLoader = (show) => {
         loader.style.display = show ? 'flex' : 'none';
     };
-    
+
     const showAlert = (message, isConfirm = false, title = 'แจ้งเตือน') => {
         return new Promise((resolve) => {
             const modal = document.getElementById('alertModal');
@@ -25,12 +25,12 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('alert-modal-body').textContent = message;
             const confirmBtn = document.getElementById('alert-modal-confirm');
             const cancelBtn = document.getElementById('alert-modal-cancel');
-            
+
             confirmBtn.style.display = 'inline-block';
             cancelBtn.style.display = isConfirm ? 'inline-block' : 'none';
 
             modal.style.display = 'flex';
-            
+
             const close = (result) => {
                 modal.style.display = 'none';
                 confirmBtn.onclick = null;
@@ -72,13 +72,16 @@ document.addEventListener('DOMContentLoaded', () => {
             showLoader(false);
         }
     };
-    
+
     async function initializeApp() {
         const machineData = await fetchData('/api/machines');
         if (machineData) {
             machines = machineData;
             populateMachineDropdowns();
         }
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('calibration-date').value = now.toISOString().slice(0, 16);
         await loadRecords();
     }
 
@@ -89,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
               ...rec,
               id: rec._id // Ensure backward compatibility if some parts use 'id'
             })).sort((a, b) => new Date(b.date) - new Date(a.date));
-            
+
             renderFilteredRecords(); // Use filter rendering
             updateUIOnDataChange();
         }
@@ -135,17 +138,17 @@ document.addEventListener('DOMContentLoaded', () => {
             showMachineHistory();
         }
     }
-    
+
     // --- TABS ---
     function switchTab(tabName) {
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
       document.getElementById(tabName).classList.add('active');
       document.querySelector(`.nav-tab[data-tab="${tabName}"]`).classList.add('active');
-      
-      if (tabName === 'summary') { 
-          updateSummary(); 
-          buildSummaryCharts(); 
+
+      if (tabName === 'summary') {
+          updateSummary();
+          buildSummaryCharts();
       }
       if (tabName === 'machine-history') {
           historyMachineSelect.value = '';
@@ -157,7 +160,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function clearForm() {
         document.getElementById('machine-select').value = '';
         document.getElementById('calibrator-select').value = '';
-        document.getElementById('calibration-date').value = '';
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('calibration-date').value = now.toISOString().slice(0, 16);
         document.getElementById('image-upload').value = '';
         document.getElementById('notes').value = '';
         selectedStatus = '';
@@ -170,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const calibrator = document.getElementById('calibrator-select').value;
       const notes = document.getElementById('notes').value;
       const file = document.getElementById('image-upload').files[0];
-      
+
       if (!machine || !date || !selectedStatus || !calibrator) {
         showAlert('กรุณากรอกข้อมูลให้ครบถ้วน');
         return;
@@ -190,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
           showAlert('บันทึกข้อมูลสำเร็จ!');
       }
     }
-    
+
     // --- FILTERS ---
     function renderFilteredRecords() {
         const searchTerm = document.getElementById('filter-search').value.toLowerCase();
@@ -207,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         renderRecords(filtered);
     }
-    
+
     // --- MACHINE HISTORY ---
     function showMachineHistory() {
         const selectedMachine = historyMachineSelect.value;
@@ -260,7 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function deleteRecord(id) {
         const confirmed = await showAlert(`ยืนยันลบข้อมูลนี้?`, true, 'ยืนยันการลบ');
         if (!confirmed) return;
-        
+
         await fetchData(`/api/records/${id}`, { method: 'DELETE' });
     }
 
@@ -321,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function buildSummaryCharts() {
         const pieCtx = document.getElementById('statusPie').getContext('2d');
         const lineCtx = document.getElementById('recordsByDay').getContext('2d');
-        
+
         // Pie Chart
         const pass = +document.getElementById('passed-machines').textContent;
         const fail = +document.getElementById('failed-machines').textContent;
@@ -329,12 +334,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (statusPieChart) statusPieChart.destroy();
         statusPieChart = new Chart(pieCtx, {
             type: 'pie',
-            data: { 
-                labels: ['ผ่าน', 'ไม่ผ่าน', 'รอสอบเทียบ'], 
-                datasets: [{ 
+            data: {
+                labels: ['ผ่าน', 'ไม่ผ่าน', 'รอสอบเทียบ'],
+                datasets: [{
                     data: [pass, fail, pending],
                     backgroundColor: ['#28a745', '#dc3545', '#ffc107']
-                }] 
+                }]
             },
             options: { plugins: { legend: { position: 'bottom' } } }
         });
@@ -350,16 +355,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (recordsByDayChart) recordsByDayChart.destroy();
         recordsByDayChart = new Chart(lineCtx, {
             type: 'line',
-            data: { 
-                labels: dates.map(d => new Date(d).toLocaleDateString('th-TH')), 
-                datasets: [{ 
-                    label: 'จำนวนบันทึกต่อวัน', 
-                    data: values, 
+            data: {
+                labels: dates.map(d => new Date(d).toLocaleDateString('th-TH')),
+                datasets: [{
+                    label: 'จำนวนบันทึกต่อวัน',
+                    data: values,
                     borderColor: '#4facfe',
-                    fill: false, 
-                    tension: 0.2, 
-                    pointRadius: 4 
-                }] 
+                    fill: false,
+                    tension: 0.2,
+                    pointRadius: 4
+                }]
             },
             options: { plugins: { legend: { display: true } }, scales: { y: { beginAtZero: true } } }
         });
@@ -368,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function buildMachineTrendChart(sortedRecords) {
         const ctx = document.getElementById('machineTrend').getContext('2d');
         if (machineTrendChart) machineTrendChart.destroy();
-        
+
         machineTrendChart = new Chart(ctx, {
             type: 'line',
             data: {
@@ -413,12 +418,12 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
         document.getElementById('genericModal').style.display = 'flex';
     }
-    
+
     // --- EXCEL EXPORT ---
     function exportExcel() {
         const recs = records.map(r => ({
-            'ID': r.id, 'เครื่อง': r.machine, 'ปริมาตร (ลิตร)': r.volume, 
-            'วันที่สอบเทียบ': r.date, 'ผล': r.status, 'ผู้สอบเทียบ': r.calibrator, 
+            'ID': r.id, 'เครื่อง': r.machine, 'ปริมาตร (ลิตร)': r.volume,
+            'วันที่สอบเทียบ': r.date, 'ผล': r.status, 'ผู้สอบเทียบ': r.calibrator,
             'หมายเหตุ': r.notes || '', 'เวลาบันทึก': r.timestamp, 'รูปภาพ': r.image || ''
         }));
         const ws1 = XLSX.utils.json_to_sheet(recs);
@@ -448,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
             switchTab(e.target.dataset.tab);
         }
     });
-    
+
     document.querySelector('.status-buttons').addEventListener('click', (e) => {
         if (e.target.matches('.status-btn')) {
             selectedStatus = e.target.dataset.status;
@@ -456,23 +461,23 @@ document.addEventListener('DOMContentLoaded', () => {
             e.target.classList.add('active');
         }
     });
-    
+
     document.getElementById('add-record-btn').addEventListener('click', addRecord);
     document.getElementById('bulk-delete-btn').addEventListener('click', bulkDelete);
     document.getElementById('export-excel-btn-1').addEventListener('click', exportExcel);
     document.getElementById('export-excel-btn-2').addEventListener('click', exportExcel);
     historyMachineSelect.addEventListener('change', showMachineHistory);
-    
+
     // Filter listeners
     ['filter-search', 'filter-status', 'filter-calibrator', 'filter-date'].forEach(id => {
         document.getElementById(id).addEventListener('input', renderFilteredRecords);
     });
-    
+
     // Modal Close Listeners
     document.getElementById('genericModal-close').addEventListener('click', () => {
         document.getElementById('genericModal').style.display = 'none';
     });
-    
+
     window.addEventListener('click', (e) => {
         if (e.target.id === 'genericModal') e.target.style.display = 'none';
         if (e.target.id === 'alertModal') e.target.style.display = 'none';
