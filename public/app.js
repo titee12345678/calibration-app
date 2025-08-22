@@ -4,9 +4,7 @@ function getLocalISOStringForInput() {
     const year = now.getFullYear();
     const month = pad(now.getMonth() + 1);
     const day = pad(now.getDate());
-    const hours = pad(now.getHours());
-    const minutes = pad(now.getMinutes());
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    return `${year}-${month}-${day}`;
 }
 
 
@@ -128,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
               <div style="line-height:1.6;">
                 <div><strong>ปริมาตร:</strong> ${r.volume} ลิตร</div>
-                <div><strong>วันที่สอบเทียบ:</strong> ${new Date(r.date).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</div>
+                <div><strong>วันที่สอบเทียบ:</strong> ${new Date(r.date).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}</div>
                 <div><strong>ผู้สอบเทียบ:</strong> ${r.calibrator || '-'}</div>
                 <div><strong>บันทึกเมื่อ:</strong> ${new Date(r.timestamp).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</div>
                 ${r.notes ? `<div><strong>หมายเหตุ:</strong> ${r.notes}</div>` : ''}
@@ -257,7 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.innerHTML = desc.map((r, i) => `
                 <tr>
                     <td>${desc.length - i}</td>
-                    <td>${new Date(r.date).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td>
+                    <td>${new Date(r.date).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}</td>
                     <td>${r.status === 'pass' ? '✅ ผ่าน' : '❌ ไม่ผ่าน'}</td>
                     <td>${r.calibrator}</td>
                     <td style="font-size:.9rem;color:#666;">${new Date(r.timestamp).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td>
@@ -327,7 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td style="text-align:left;font-weight:700;">${m.machine}</td>
           <td>${m.volume}</td>
           <td>${m.status==='pass'?'✅ ผ่าน': m.status==='fail'?'❌ ไม่ผ่าน':'⏳ รอสอบเทียบ'}</td>
-          <td>${m.lastDate==='-'?'-': new Date(m.lastDate).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td>
+          <td>${m.lastDate==='-'?'-': new Date(m.lastDate).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}</td>
           <td>${m.count}</td>
         </tr>
       `).join('');
@@ -419,7 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="line-height:1.8;">
               <p><strong>เครื่องมือ:</strong> ${r.machine}</p>
               <p><strong>ปริมาตร:</strong> ${r.volume} ลิตร</p>
-              <p><strong>วันที่สอบเทียบ:</strong> ${new Date(r.date).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
+              <p><strong>วันที่สอบเทียบ:</strong> ${new Date(r.date).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
               <p><strong>ผลการสอบเทียบ:</strong> ${r.status === 'pass' ? '✅ ผ่าน' : '❌ ไม่ผ่าน'}</p>
               <p><strong>ผู้สอบเทียบ:</strong> ${r.calibrator}</p>
               <p><strong>วันที่บันทึก:</strong> ${new Date(r.timestamp).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</p>
@@ -433,7 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function exportExcel() {
         const recs = records.map(r => ({
             'ID': r.id, 'เครื่อง': r.machine, 'ปริมาตร (ลิตร)': r.volume,
-            'วันที่สอบเทียบ': new Date(r.date).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }),
+            'วันที่สอบเทียบ': new Date(r.date).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' }),
             'ผล': r.status, 'ผู้สอบเทียบ': r.calibrator,
             'หมายเหตุ': r.notes || '',
             'เวลาบันทึก': new Date(r.timestamp).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }),
@@ -454,7 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const summaryData = Object.values(statusByMachine).map(m => ({
             ...m,
-            'วันที่ล่าสุด': m['วันที่ล่าสุด'] === '-' ? '-' : new Date(m['วันที่ล่าสุด']).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })
+            'วันที่ล่าสุด': m['วันที่ล่าสุด'] === '-' ? '-' : new Date(m['วันที่ล่าสุด']).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })
         }))
         const ws2 = XLSX.utils.json_to_sheet(summaryData);
 
