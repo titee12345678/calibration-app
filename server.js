@@ -16,6 +16,8 @@ const io = new Server(server, {
   cors: { origin: '*' }
 });
 
+let serverInstance = null;
+
 const PORT = Number.parseInt(process.env.PORT, 10) || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
 const MAX_UPLOAD_SIZE_MB = Number.parseInt(process.env.MAX_UPLOAD_SIZE_MB, 10) || 10;
@@ -93,7 +95,8 @@ const getAsync = (sql, params = []) => new Promise((resolve, reject) => {
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(express.static('public'));
+const publicDir = path.join(__dirname, 'public');
+app.use(express.static(publicDir));
 app.use('/uploads', express.static(UPLOADS_DIR));
 
 // Serve root index.html
@@ -349,27 +352,85 @@ io.on('connection', () => {
 
 let shuttingDown = false;
 
-const gracefulShutdown = () => {
+const shutdown = (shouldExit = false) => new Promise((resolve) => {
   if (shuttingDown) {
-    return;
+    if (!shouldExit) {
+      return resolve();
+    }
   }
   shuttingDown = true;
   console.log('\nกำลังปิดเซิร์ฟเวอร์...');
-  server.close(() => {
+
+  const finalize = () => {
     db.close((err) => {
       if (err) {
         console.error('ปิดฐานข้อมูลไม่สำเร็จ:', err);
       } else {
         console.log('ปิดการเชื่อมต่อฐานข้อมูลเรียบร้อย');
       }
-      process.exit(0);
+      if (shouldExit) {
+        process.exit(0);
+      }
+      resolve();
     });
+  };
+
+  if (server.listening) {
+    server.close(() => {
+      serverInstance = null;
+      finalize();
+    });
+  } else {
+    finalize();
+  }
+});
+
+const gracefulShutdown = () => {
+  shutdown(true);
+};
+
+const startServer = (port = PORT, host = HOST) => {
+  if (serverInstance && serverInstance.listening) {
+    return Promise.resolve(serverInstance);
+  }
+
+  return new Promise((resolve, reject) => {
+    const onError = (err) => {
+      server.removeListener('listening', onListening);
+      reject(err);
+    };
+
+    const onListening = () => {
+      server.removeListener('error', onError);
+      serverInstance = server;
+      const address = server.address();
+      const resolvedHost = address && address.address ? address.address : host;
+      const resolvedPort = address && address.port ? address.port : port;
+      console.log(`Server running on http://${resolvedHost}:${resolvedPort}`);
+      shuttingDown = false;
+      resolve(serverInstance);
+    };
+
+    server.once('error', onError);
+    server.listen(port, host, onListening);
   });
 };
+
+const stopServer = () => shutdown(false);
 
 process.on('SIGINT', gracefulShutdown);
 process.on('SIGTERM', gracefulShutdown);
 
-server.listen(PORT, HOST, () => {
-  console.log(`Server running on http://${HOST}:${PORT}`);
-});
+if (require.main === module) {
+  startServer().catch((err) => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  app,
+  io,
+  startServer,
+  stopServer
+};

@@ -2,9 +2,12 @@
   "name": "calibration-app",
   "version": "1.1.0",
   "description": "Calibration log app using Express + SQLite + Socket.IO + Chart.js + Excel export",
-  "main": "server.js",
+  "main": "electron/main.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "electron:start": "electron electron/main.js",
+    "preelectron:build": "rimraf dist",
+    "electron:build": "electron-builder --win --x64"
   },
   "engines": {
     "node": ">=18"
@@ -16,5 +19,55 @@
     "multer": "^1.4.5-lts.1",
     "socket.io": "^4.7.5",
     "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "electron": "^31.0.2",
+    "electron-builder": "^24.13.3",
+    "rimraf": "^5.0.5"
+  },
+  "build": {
+    "appId": "com.calibration.app",
+    "productName": "Calibration App",
+    "directories": {
+      "output": "dist",
+      "buildResources": "electron/resources"
+    },
+    "asarUnpack": [
+      "node_modules/sqlite3/**"
+    ],
+    "files": [
+      "electron/**/*",
+      "public/**/*",
+      "server.js",
+      "package.json",
+      "data/**/*",
+      "uploads/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "data/",
+        "to": "data",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "uploads/",
+        "to": "uploads",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
   }
 }

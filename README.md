@@ -21,6 +21,21 @@ The server is configured to bind to `127.0.0.1` by default, so it only accepts t
    ```
 3. Open your browser and navigate to [http://localhost:3000](http://localhost:3000).
 
+## Desktop build with Electron
+
+- Launch the desktop shell during development:
+  ```bash
+  npm run electron:start
+  ```
+  This boots the Express/Socket.IO backend and loads it inside an Electron window.
+- Package a Windows x64 installer:
+  ```bash
+  npm run electron:build
+  ```
+  The build script automatically deletes any previous `dist/` directory before producing a fresh installer.
+
+When packaged, the app stores its SQLite database and uploaded images inside the Electron user data folder (e.g. `%APPDATA%/Calibration App/`). You can still override `DATA_DIR` or `UPLOADS_DIR` to point elsewhere if needed.
+
 ## Data storage
 
 - **Database**: A SQLite database file (`calibration.db`) is created automatically inside the `data/` directory on first launch.
@@ -39,4 +54,3 @@ You can override these to fit your environment (e.g. storing data on another dri
 - `MAX_UPLOAD_SIZE_MB`: Maximum allowed image size in megabytes (defaults to `10`).
 
 All directories are created automatically if they do not exist. The server validates that uploaded files are images and removes them again if the database insert fails, keeping the storage clean.
-
