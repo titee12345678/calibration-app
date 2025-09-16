@@ -1,10 +1,11 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
-const { createClient } = require('@supabase/supabase-js');
+const sqlite3 = require('sqlite3').verbose();
 require('dotenv').config();
 
 const app = express();
@@ -15,21 +16,83 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 
+const DATA_DIR = path.join(__dirname, 'data');
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const RECORDS_UPLOAD_DIR = path.join(UPLOADS_DIR, 'records');
+
+// Ensure required directories exist for database and file uploads
+[DATA_DIR, RECORDS_UPLOAD_DIR].forEach((dir) => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
+
+const dbPath = path.join(DATA_DIR, 'calibration.db');
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('Failed to connect to SQLite database:', err);
+  } else {
+    console.log(`Connected to SQLite database at ${dbPath}`);
+  }
+});
+
+db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      machine TEXT NOT NULL,
+      volume REAL,
+      date TEXT NOT NULL,
+      status TEXT NOT NULL,
+      image_path TEXT,
+      timestamp TEXT NOT NULL,
+      calibrator TEXT NOT NULL,
+      notes TEXT
+    )
+  `);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_records_machine ON records(machine)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_records_date ON records(date)`);
+});
+
+const runAsync = (sql, params = []) => new Promise((resolve, reject) => {
+  db.run(sql, params, function (err) {
+    if (err) {
+      reject(err);
+    } else {
+      resolve({ lastID: this.lastID, changes: this.changes });
+    }
+  });
+});
+
+const allAsync = (sql, params = []) => new Promise((resolve, reject) => {
+  db.all(sql, params, (err, rows) => {
+    if (err) {
+      reject(err);
+    } else {
+      resolve(rows);
+    }
+  });
+});
+
+const getAsync = (sql, params = []) => new Promise((resolve, reject) => {
+  db.get(sql, params, (err, row) => {
+    if (err) {
+      reject(err);
+    } else {
+      resolve(row);
+    }
+  });
+});
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 // Serve root index.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-
-// Supabase client
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-const BUCKET = process.env.SUPABASE_BUCKET || 'calibration';
 
 // Machine master data (managed on server)
 const machines = {
@@ -48,26 +111,51 @@ app.get('/api/machines', (req, res) => {
   res.json(machines);
 });
 
-// multer memory storage
-const upload = multer({ storage: multer.memoryStorage() });
+const { promises: fsPromises } = fs;
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, RECORDS_UPLOAD_DIR);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `${unique}${ext}`);
+  }
+});
+
+const upload = multer({ storage });
+
+const toPublicUrl = (storedPath) => {
+  if (!storedPath) return null;
+  const normalized = storedPath.replace(/\\/g, '/');
+  return `/uploads/${normalized}`;
+};
+
+const deleteFileIfExists = async (storedPath) => {
+  if (!storedPath) return;
+  const absolute = path.join(UPLOADS_DIR, storedPath.replace(/\//g, path.sep));
+  try {
+    await fsPromises.unlink(absolute);
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      console.error(`Failed to remove file ${absolute}:`, err);
+    }
+  }
+};
 
 // GET: list all records ordered by date desc
 app.get('/api/records', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('records')
-      .select('*')
-      .order('date', { ascending: false });
-    if (error) throw error;
-
-    const mapped = (data || []).map(r => ({
+    const rows = await allAsync('SELECT * FROM records ORDER BY date DESC');
+    const mapped = rows.map((r) => ({
       _id: r.id,
       machine: r.machine,
       volume: r.volume,
       date: r.date,
       status: r.status,
-      image: r.image_url || null,
-      timestamp: r.timestamp || r.created_at,
+      image: toPublicUrl(r.image_path),
+      timestamp: r.timestamp,
       calibrator: r.calibrator,
       notes: r.notes || null
     }));
@@ -81,57 +169,54 @@ app.get('/api/records', async (req, res) => {
 app.post('/api/records', upload.single('image'), async (req, res) => {
   try {
     const { machine, date, status, calibrator, notes } = req.body;
-    const volume = machines[machine] || null; // Get volume from server-side machine list
+    const volume = machines[machine] || null;
 
     if (!volume) {
-        return res.status(400).json({ error: 'Invalid machine specified.' });
+      return res.status(400).json({ error: 'Invalid machine specified.' });
     }
 
-    let image_url = null;
-    let file_path = null;
+    if (!date || !status || !calibrator) {
+      return res.status(400).json({ error: 'Missing required fields.' });
+    }
 
+    const parsedDate = new Date(date);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return res.status(400).json({ error: 'Invalid date format.' });
+    }
+    const isoDate = parsedDate.toISOString();
+
+    const timestamp = new Date().toISOString();
+    const cleanedNotes = notes && notes.trim().length ? notes.trim() : null;
+
+    let storedPath = null;
     if (req.file) {
-      const ext = path.extname(req.file.originalname) || '';
-      const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
-      file_path = `records/${fileName}`;
-
-      const { error: upErr } = await supabase
-        .storage
-        .from(BUCKET)
-        .upload(file_path, req.file.buffer, {
-          contentType: req.file.mimetype,
-          upsert: false
-        });
-      if (upErr) throw upErr;
-
-      const { data } = supabase.storage.from(BUCKET).getPublicUrl(file_path);
-      image_url = data.publicUrl;
+      const relative = path.relative(UPLOADS_DIR, req.file.path);
+      storedPath = relative.split(path.sep).join('/');
     }
 
-    const { data: inserted, error: dbErr } = await supabase
-      .from('records')
-      .insert({
+    const result = await runAsync(
+      `INSERT INTO records (machine, volume, date, status, image_path, timestamp, calibrator, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
         machine,
-        volume: Number(volume),
-        date,
+        Number(volume),
+        isoDate,
         status,
-        image_url,
-        file_path,
+        storedPath,
+        timestamp,
         calibrator,
-        notes,
-        timestamp: new Date().toISOString()
-      })
-      .select()
-      .single();
-    if (dbErr) throw dbErr;
+        cleanedNotes
+      ]
+    );
 
+    const inserted = await getAsync('SELECT * FROM records WHERE id = ?', [result.lastID]);
     const payload = {
       _id: inserted.id,
       machine: inserted.machine,
       volume: inserted.volume,
       date: inserted.date,
       status: inserted.status,
-      image: inserted.image_url || null,
+      image: toPublicUrl(inserted.image_path),
       timestamp: inserted.timestamp,
       calibrator: inserted.calibrator,
       notes: inserted.notes
@@ -148,27 +233,15 @@ app.post('/api/records', upload.single('image'), async (req, res) => {
 app.delete('/api/records/:id', async (req, res) => {
   try {
     const id = req.params.id;
-
-    const { data: rows, error: qErr } = await supabase
-      .from('records')
-      .select('file_path, machine')
-      .eq('id', id)
-      .limit(1);
-    if (qErr) throw qErr;
-    const filePath = rows?.[0]?.file_path;
-    const machine = rows?.[0]?.machine;
-
-    const { error: delErr } = await supabase
-      .from('records')
-      .delete()
-      .eq('id', id);
-    if (delErr) throw delErr;
-
-    if (filePath) {
-      await supabase.storage.from(BUCKET).remove([filePath]);
+    const row = await getAsync('SELECT image_path, machine FROM records WHERE id = ?', [id]);
+    if (!row) {
+      return res.status(404).json({ error: 'Record not found' });
     }
 
-    io.emit('records-updated', { type: 'delete', id, machine });
+    await runAsync('DELETE FROM records WHERE id = ?', [id]);
+    await deleteFileIfExists(row.image_path);
+
+    io.emit('records-updated', { type: 'delete', id, machine: row.machine });
     res.json({ message: 'Record deleted' });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -181,22 +254,11 @@ app.delete('/api/records', async (req, res) => {
     const { machine } = req.query;
     if (!machine) return res.status(400).json({ error: 'machine is required' });
 
-    const { data: rows, error: qErr } = await supabase
-      .from('records')
-      .select('id, file_path')
-      .eq('machine', machine);
-    if (qErr) throw qErr;
+    const rows = await allAsync('SELECT id, image_path FROM records WHERE machine = ?', [machine]);
 
-    const { error: delErr } = await supabase
-      .from('records')
-      .delete()
-      .eq('machine', machine);
-    if (delErr) throw delErr;
+    await runAsync('DELETE FROM records WHERE machine = ?', [machine]);
 
-    const paths = (rows || []).map(r => r.file_path).filter(Boolean);
-    if (paths.length) {
-      await supabase.storage.from(BUCKET).remove(paths);
-    }
+    await Promise.all(rows.map((r) => deleteFileIfExists(r.image_path)));
 
     io.emit('records-updated', { type: 'bulk-delete', machine });
     res.json({ message: `Deleted ${rows?.length || 0} records for ${machine}` });
