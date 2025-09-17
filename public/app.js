@@ -122,13 +122,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 accessLocal.textContent = info.baseUrl;
             }
             if (Array.isArray(info.lanUrls) && info.lanUrls.length) {
-                accessLan.textContent = info.lanUrls.join(', ');
+                // แสดง URL สำหรับมือถือให้ชัดเจน
+                const urlList = info.lanUrls.map(url => `<code>${url}</code>`).join('<br>');
+                accessLan.innerHTML = `📱 สำหรับมือถือ:<br>${urlList}`;
             } else if (info.isBoundToAll) {
-                accessLan.textContent = 'กำลังตรวจสอบ...';
+                accessLan.textContent = '🔄 กำลังตรวจสอบ IP Address...';
             } else if (info.configPath) {
-                accessLan.textContent = 'แก้ host เป็น 0.0.0.0 ที่ไฟล์ config.json';
+                accessLan.innerHTML = '⚠️ แก้ host เป็น <code>0.0.0.0</code> ที่ไฟล์ config.json';
             } else {
-                accessLan.textContent = 'ใช้คำสั่ง npm run start:lan เพื่อแชร์บนเครือข่าย';
+                accessLan.innerHTML = '📱 ใช้คำสั่ง <code>npm run start:lan</code> เพื่อแชร์บนเครือข่าย';
             }
             accessInfoBox.style.display = 'inline-flex';
         } catch (err) {

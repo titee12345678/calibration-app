@@ -8,7 +8,9 @@
     "start:lan": "cross-env HOST=0.0.0.0 node server.js",
     "electron:start": "electron electron/main.js",
     "preelectron:build": "rimraf dist",
-    "electron:build": "electron-builder --win --x64"
+    "electron:build": "cross-env NODE_ENV=production electron-builder --win --x64",
+    "electron:build:debug": "cross-env DEBUG=electron-builder NODE_ENV=production electron-builder --win --x64",
+    "clean": "rimraf dist && rimraf node_modules/.cache"
   },
   "engines": {
     "node": ">=18"
@@ -34,16 +36,28 @@
       "output": "dist",
       "buildResources": "electron/resources"
     },
+    "asar": true,
     "asarUnpack": [
-      "node_modules/sql.js/dist/sql-wasm.wasm"
+      "node_modules/sql.js/dist/sql-wasm.wasm",
+      "node_modules/sql.js/dist/sql-asm.js"
     ],
     "files": [
       "electron/**/*",
       "public/**/*",
       "server.js",
       "package.json",
-      "data/**/*",
-      "uploads/**/*"
+      "node_modules/**/*",
+      "!node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!node_modules/*.d.ts",
+      "!node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
     ],
     "extraResources": [
       {
@@ -70,6 +84,12 @@
           ]
         }
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   }
 }

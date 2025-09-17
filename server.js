@@ -43,31 +43,54 @@ let persistQueue = Promise.resolve();
 
 const resolveSqlJsDist = () => {
   const candidates = [
-    path.join(__dirname, 'node_modules', 'sql.js', 'dist'),
-    path.join(__dirname, '..', 'app.asar.unpacked', 'node_modules', 'sql.js', 'dist'),
-    process.resourcesPath ? path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'sql.js', 'dist') : null
+    path.normalize(path.join(__dirname, 'node_modules', 'sql.js', 'dist')),
+    path.normalize(path.join(__dirname, '..', 'app.asar.unpacked', 'node_modules', 'sql.js', 'dist')),
+    process.resourcesPath ? path.normalize(path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'sql.js', 'dist')) : null,
+    // เพิ่ม path สำหรับ production build
+    process.resourcesPath ? path.normalize(path.join(process.resourcesPath, 'app', 'node_modules', 'sql.js', 'dist')) : null,
+    // path สำหรับ portable installation
+    path.normalize(path.join(process.cwd(), 'resources', 'app.asar.unpacked', 'node_modules', 'sql.js', 'dist')),
+    path.normalize(path.join(process.cwd(), 'resources', 'app', 'node_modules', 'sql.js', 'dist')),
+    // Windows specific paths
+    process.platform === 'win32' && process.resourcesPath ?
+      path.normalize(path.join(path.dirname(process.resourcesPath), 'app.asar.unpacked', 'node_modules', 'sql.js', 'dist')) : null
   ].filter(Boolean);
 
+  console.log('Searching for sql.js in paths:', candidates);
+
   for (const candidate of candidates) {
-    if (fs.existsSync(path.join(candidate, 'sql-wasm.wasm'))) {
+    const wasmPath = path.join(candidate, 'sql-wasm.wasm');
+    if (fs.existsSync(wasmPath)) {
+      console.log(`Found sql.js at: ${candidate}`);
       return candidate;
+    } else {
+      console.log(`Not found at: ${candidate}`);
     }
   }
 
-  return path.join(__dirname, 'node_modules', 'sql.js', 'dist');
+  console.warn('sql-wasm.wasm not found in any candidate paths, falling back to default');
+  return path.normalize(path.join(__dirname, 'node_modules', 'sql.js', 'dist'));
 };
 
 const getSqlModule = () => {
   if (!sqlModulePromise) {
     const distDir = resolveSqlJsDist();
+    console.log(`Initializing sql.js from: ${distDir}`);
+
     sqlModulePromise = initSqlJs({
-      locateFile: (file) => path.join(distDir, file)
+      locateFile: (file) => {
+        const filePath = path.join(distDir, file);
+        console.log(`Locating sql.js file: ${filePath}`);
+        return filePath;
+      }
     })
       .then((module) => {
         SQL = module;
+        console.log('sql.js initialized successfully');
         return SQL;
       })
       .catch((err) => {
+        console.error('Failed to initialize sql.js:', err);
         sqlModulePromise = null;
         throw err;
       });
@@ -77,8 +100,13 @@ const getSqlModule = () => {
 
 const persistDatabase = async () => {
   if (!db) return;
-  const data = db.export();
-  await fsPromises.writeFile(dbPath, Buffer.from(data));
+  try {
+    const data = db.export();
+    await fs.promises.writeFile(dbPath, Buffer.from(data));
+  } catch (err) {
+    console.error('Failed to persist database:', err);
+    throw err;
+  }
 };
 
 const queuePersist = () => {
@@ -102,7 +130,7 @@ const loadDatabase = async () => {
       const SQLModule = await getSqlModule();
       const hasExistingFile = fs.existsSync(dbPath);
       if (hasExistingFile) {
-        const fileBuffer = await fsPromises.readFile(dbPath);
+        const fileBuffer = await fs.promises.readFile(dbPath);
         db = fileBuffer.length ? new SQLModule.Database(fileBuffer) : new SQLModule.Database();
       } else {
         db = new SQLModule.Database();
@@ -240,13 +268,40 @@ app.get('/api/server-info', (req, res) => {
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-const publicDir = path.join(__dirname, 'public');
+
+// แก้ไข path สำหรับ production build
+const getAppRoot = () => {
+  // ตรวจสอบว่าเป็น packaged app หรือไม่
+  const isPackaged = process.env.NODE_ENV === 'production' || process.resourcesPath;
+
+  if (isPackaged && process.resourcesPath) {
+    const possibleRoots = [
+      path.normalize(path.join(process.resourcesPath, 'app')),
+      path.normalize(path.join(process.resourcesPath, 'app.asar')),
+      path.normalize(path.join(path.dirname(process.resourcesPath), 'app')),
+      __dirname
+    ];
+
+    for (const root of possibleRoots) {
+      const publicPath = path.join(root, 'public');
+      if (fs.existsSync(publicPath)) {
+        console.log(`Using app root: ${root}`);
+        return root;
+      }
+    }
+  }
+
+  console.log(`Using default app root: ${__dirname}`);
+  return __dirname;
+};
+
+const publicDir = path.join(getAppRoot(), 'public');
 app.use(express.static(publicDir));
 app.use('/uploads', express.static(UPLOADS_DIR));
 
 // Serve root index.html
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(publicDir, 'index.html'));
 });
 
 // Machine master data (managed on server)
@@ -266,7 +321,7 @@ app.get('/api/machines', (req, res) => {
   res.json(machines);
 });
 
-const { promises: fsPromises } = fs;
+// ลบบรรทัดนี้เพราะใช้ fs.promises แทน
 
 const allowedMimeTypes = new Set([
   'image/jpeg',
@@ -337,7 +392,7 @@ const deleteFileIfExists = async (storedPath) => {
   if (!storedPath) return;
   const absolute = path.join(UPLOADS_DIR, storedPath.split('/').join(path.sep));
   try {
-    await fsPromises.unlink(absolute);
+    await fs.promises.unlink(absolute);
   } catch (err) {
     if (err.code !== 'ENOENT') {
       console.error(`Failed to remove file ${absolute}:`, err);
@@ -434,7 +489,7 @@ app.post('/api/records', uploadSingleImage, async (req, res) => {
       await deleteFileIfExists(storedPath);
     } else if (req.file) {
       try {
-        await fsPromises.unlink(req.file.path);
+        await fs.promises.unlink(req.file.path);
       } catch (unlinkErr) {
         if (unlinkErr.code !== 'ENOENT') {
           console.error('ไม่สามารถลบไฟล์ชั่วคราวได้:', unlinkErr);

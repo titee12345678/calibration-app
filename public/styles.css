@@ -68,4 +68,34 @@ select, input, textarea {
 .alert-btn-cancel { background-color: #6c757d; color: white; }
 /* Filters */
 .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; background: #f8f9fa; padding: 20px; border-radius: 15px; margin-bottom: 20px; }
-@media (max-width: 768px){ .records-grid{ grid-template-columns:1fr; } .nav-tab{ min-width:auto; } }
+/* Mobile responsive design */
+@media (max-width: 768px) {
+  body { padding: 10px; }
+  .container { border-radius: 15px; }
+  .header { padding: 20px 15px; }
+  .header h1 { font-size: 1.8rem; }
+  .access-info { font-size: 0.85rem; padding: 10px 12px; }
+  .main-content { padding: 20px 15px; }
+  .form-section { padding: 20px 15px; margin-bottom: 20px; }
+  .records-grid { grid-template-columns: 1fr; gap: 12px; }
+  .nav-tabs { flex-direction: column; gap: 4px; }
+  .nav-tab { min-width: auto; padding: 10px 12px; font-size: 0.95rem; }
+  .status-buttons { flex-direction: column; gap: 8px; }
+  .status-btn { min-width: auto; padding: 10px 15px; }
+  .actions-row { flex-direction: column; gap: 8px; align-items: stretch; }
+  .filters { grid-template-columns: 1fr; gap: 10px; padding: 15px; }
+  .summary-stats { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .modal-content { width: 95%; padding: 20px; }
+  .record-card { padding: 12px; }
+  .stat-card { padding: 12px; }
+  .stat-number { font-size: 1.5rem; }
+}
+
+/* Extra small devices */
+@media (max-width: 480px) {
+  .header h1 { font-size: 1.5rem; }
+  .summary-stats { grid-template-columns: 1fr; }
+  .access-info { flex-direction: column; text-align: center; }
+  .status-buttons { gap: 6px; }
+  .status-btn { padding: 8px 12px; font-size: 0.9rem; }
+}
