@@ -43,8 +43,7 @@
       "server.js",
       "package.json",
       "data/**/*",
-      "uploads/**/*",
-      "node_modules/**/*"
+      "uploads/**/*"
     ],
     "extraResources": [
       {

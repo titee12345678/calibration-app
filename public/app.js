@@ -22,6 +22,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const machineSelect = document.getElementById('machine-select');
     const historyMachineSelect = document.getElementById('history-machine-select');
     const recordsGrid = document.getElementById('records-grid');
+    const accessInfoBox = document.getElementById('access-info');
+    const accessLocal = document.getElementById('access-local');
+    const accessLan = document.getElementById('access-lan');
 
     // --- UTILS ---
     const showLoader = (show) => {
@@ -91,6 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         document.getElementById('calibration-date').value = getLocalISOStringForInput();
         await loadRecords();
+        refreshAccessInfo();
     }
 
     async function loadRecords() {
@@ -103,6 +107,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
             renderFilteredRecords(); // Use filter rendering
             updateUIOnDataChange();
+        }
+    }
+
+    async function refreshAccessInfo() {
+        if (!accessInfoBox) return;
+        try {
+            const response = await fetch('/api/server-info');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const info = await response.json();
+            if (info.baseUrl) {
+                accessLocal.textContent = info.baseUrl;
+            }
+            if (Array.isArray(info.lanUrls) && info.lanUrls.length) {
+                accessLan.textContent = info.lanUrls.join(', ');
+            } else if (info.isBoundToAll) {
+                accessLan.textContent = 'กำลังตรวจสอบ...';
+            } else if (info.configPath) {
+                accessLan.textContent = 'แก้ host เป็น 0.0.0.0 ที่ไฟล์ config.json';
+            } else {
+                accessLan.textContent = 'ใช้คำสั่ง npm run start:lan เพื่อแชร์บนเครือข่าย';
+            }
+            accessInfoBox.style.display = 'inline-flex';
+        } catch (err) {
+            console.warn('ไม่สามารถดึงข้อมูลเซิร์ฟเวอร์ได้:', err);
         }
     }
 

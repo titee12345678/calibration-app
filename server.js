@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -151,7 +152,8 @@ const runAsync = async (sql, params = []) => {
   const database = await loadDatabase();
   const stmt = database.prepare(sql);
   try {
-    stmt.run(params);
+    stmt.bind(params);
+    stmt.step();
   } finally {
     stmt.free();
   }
@@ -198,6 +200,40 @@ const getAsync = async (sql, params = []) => {
     stmt.free();
   }
 };
+
+const gatherLanUrls = (port) => {
+  const urls = new Set();
+  const nets = os.networkInterfaces();
+  Object.values(nets).forEach((interfaces = []) => {
+    interfaces
+      .filter((iface) => !iface.internal && iface.family === 'IPv4' && iface.address)
+      .forEach((iface) => {
+        urls.add(`http://${iface.address}:${port}`);
+      });
+  });
+  return Array.from(urls);
+};
+
+app.get('/api/server-info', (req, res) => {
+  if (!server.listening) {
+    return res.status(503).json({ error: 'server not ready' });
+  }
+
+  const address = server.address();
+  const resolvedHost = address && address.address ? address.address : HOST;
+  const resolvedPort = address && address.port ? address.port : PORT;
+  const baseHost = resolvedHost === '::' ? 'localhost' : resolvedHost;
+  const lanUrls = gatherLanUrls(resolvedPort);
+
+  res.json({
+    host: resolvedHost,
+    port: resolvedPort,
+    baseUrl: `http://${baseHost}:${resolvedPort}`,
+    lanUrls,
+    isBoundToAll: resolvedHost === '0.0.0.0' || resolvedHost === '::',
+    configPath: process.env.APP_CONFIG_PATH || null
+  });
+});
 
 
 
@@ -520,14 +556,8 @@ const startServer = async (port = PORT, host = HOST) => {
       console.log(`Server running on http://${resolvedHost}:${resolvedPort}`);
 
       if (resolvedHost === '0.0.0.0' || resolvedHost === '::') {
-        const os = require('os');
-        const nets = os.networkInterfaces();
-        Object.values(nets).forEach((interfaces = []) => {
-          interfaces
-            .filter((iface) => !iface.internal && iface.family === 'IPv4')
-            .forEach((iface) => {
-              console.log(`  ➜ http://${iface.address}:${resolvedPort}`);
-            });
+        gatherLanUrls(resolvedPort).forEach((url) => {
+          console.log(`  ➜ ${url}`);
         });
       }
     };

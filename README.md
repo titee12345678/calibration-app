@@ -43,6 +43,12 @@ The server is configured to bind to `127.0.0.1` by default, so it only accepts t
   ```
   The build script automatically deletes any previous `dist/` directory before producing a fresh installer.
 
+### เปิดใช้บนมือถือเมื่อรันด้วย Electron (Windows)
+
+1. เปิดแอปครั้งแรกเพื่อให้ระบบสร้างโฟลเดอร์ข้อมูล (`%APPDATA%/Calibration App/`) พร้อมไฟล์ `config.json`.
+2. จากเมนูด้านบนเลือก `Calibration App → เปิดโฟลเดอร์ข้อมูล` (หรือเปิดโฟลเดอร์ดังกล่าวเอง) แล้วแก้ไขไฟล์ `config.json` ให้ตั้งค่า `"host": "0.0.0.0"` และปรับพอร์ตตามต้องการ.
+3. บันทึกไฟล์และรีสตาร์ทแอป หน้าแรกจะโชว์ URL ภายใน เช่น `http://192.168.x.x:3000` สำหรับเปิดจากมือถือ/แท็บเล็ตที่อยู่ใน Wi‑Fi เดียวกัน.
+4. เมื่อ Windows แจ้งเตือน Firewall ให้กดยอมรับ เพื่อให้เครื่องอื่นในเครือข่ายเข้าถึงได้.
 
 When packaged, the app stores its SQLite database and uploaded images inside the Electron user data folder (e.g. `%APPDATA%/Calibration App/`). You can still override `DATA_DIR` or `UPLOADS_DIR` to point elsewhere if needed.
 
