@@ -5,7 +5,7 @@ const fs = require('fs');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
-const sqlite3 = require('sqlite3').verbose();
+const initSqlJs = require('sql.js');
 require('dotenv').config();
 
 const resolveDir = (dir, fallback) => (dir ? path.resolve(dir) : fallback);
@@ -33,64 +33,173 @@ const RECORDS_UPLOAD_DIR = path.join(UPLOADS_DIR, 'records');
   }
 });
 
+
 const dbPath = path.join(DATA_DIR, 'calibration.db');
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Failed to connect to SQLite database:', err);
-  } else {
-    console.log(`Connected to SQLite database at ${dbPath}`);
+let sqlModulePromise = null;
+let SQL = null;
+let db = null;
+let persistQueue = Promise.resolve();
+
+const resolveSqlJsDist = () => {
+  const candidates = [
+    path.join(__dirname, 'node_modules', 'sql.js', 'dist'),
+    path.join(__dirname, '..', 'app.asar.unpacked', 'node_modules', 'sql.js', 'dist'),
+    process.resourcesPath ? path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'sql.js', 'dist') : null
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, 'sql-wasm.wasm'))) {
+      return candidate;
+    }
   }
-});
 
-db.serialize(() => {
-  db.run('PRAGMA foreign_keys = ON');
-  db.run('PRAGMA journal_mode = WAL');
-  db.run(`
-    CREATE TABLE IF NOT EXISTS records (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      machine TEXT NOT NULL,
-      volume REAL,
-      date TEXT NOT NULL,
-      status TEXT NOT NULL CHECK(status IN ('pass','fail')),
-      image_path TEXT,
-      timestamp TEXT NOT NULL,
-      calibrator TEXT NOT NULL,
-      notes TEXT
-    )
-  `);
-  db.run('CREATE INDEX IF NOT EXISTS idx_records_machine ON records(machine)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_records_date ON records(date)');
-});
+  return path.join(__dirname, 'node_modules', 'sql.js', 'dist');
+};
 
-const runAsync = (sql, params = []) => new Promise((resolve, reject) => {
-  db.run(sql, params, function (err) {
-    if (err) {
-      reject(err);
-    } else {
-      resolve({ lastID: this.lastID, changes: this.changes });
+const getSqlModule = () => {
+  if (!sqlModulePromise) {
+    const distDir = resolveSqlJsDist();
+    sqlModulePromise = initSqlJs({
+      locateFile: (file) => path.join(distDir, file)
+    })
+      .then((module) => {
+        SQL = module;
+        return SQL;
+      })
+      .catch((err) => {
+        sqlModulePromise = null;
+        throw err;
+      });
+  }
+  return sqlModulePromise;
+};
+
+const persistDatabase = async () => {
+  if (!db) return;
+  const data = db.export();
+  await fsPromises.writeFile(dbPath, Buffer.from(data));
+};
+
+const queuePersist = () => {
+  persistQueue = persistQueue
+    .then(() => persistDatabase())
+    .catch((err) => {
+      console.error('Failed to persist database:', err);
+    });
+  return persistQueue;
+};
+
+let dbPromise = null;
+
+const loadDatabase = async () => {
+  if (db) {
+    return db;
+  }
+
+  if (!dbPromise) {
+    dbPromise = (async () => {
+      const SQLModule = await getSqlModule();
+      const hasExistingFile = fs.existsSync(dbPath);
+      if (hasExistingFile) {
+        const fileBuffer = await fsPromises.readFile(dbPath);
+        db = fileBuffer.length ? new SQLModule.Database(fileBuffer) : new SQLModule.Database();
+      } else {
+        db = new SQLModule.Database();
+      }
+
+      db.run('PRAGMA foreign_keys = ON');
+      db.run('PRAGMA journal_mode = WAL');
+      db.run(`
+        CREATE TABLE IF NOT EXISTS records (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          machine TEXT NOT NULL,
+          volume REAL,
+          date TEXT NOT NULL,
+          status TEXT NOT NULL CHECK(status IN ('pass','fail')),
+          image_path TEXT,
+          timestamp TEXT NOT NULL,
+          calibrator TEXT NOT NULL,
+          notes TEXT
+        );
+      `);
+      db.run('CREATE INDEX IF NOT EXISTS idx_records_machine ON records(machine)');
+      db.run('CREATE INDEX IF NOT EXISTS idx_records_date ON records(date)');
+      console.log(`Connected to SQLite database at ${dbPath}`);
+
+      if (!hasExistingFile) {
+        await queuePersist();
+      }
+
+      return db;
+    })().catch((err) => {
+      db = null;
+      dbPromise = null;
+      throw err;
+    });
+  }
+
+  try {
+    await dbPromise;
+    return db;
+  } catch (err) {
+    dbPromise = null;
+    throw err;
+  }
+};
+
+const runAsync = async (sql, params = []) => {
+  const database = await loadDatabase();
+  const stmt = database.prepare(sql);
+  try {
+    stmt.run(params);
+  } finally {
+    stmt.free();
+  }
+
+  const isInsert = /^\s*insert/i.test(sql);
+  let lastID;
+  if (isInsert) {
+    const result = database.exec('SELECT last_insert_rowid() as id');
+    if (result.length && result[0].values.length) {
+      lastID = Number(result[0].values[0][0]);
     }
-  });
-});
+  }
+  const changes = database.getRowsModified();
+  await queuePersist();
 
-const allAsync = (sql, params = []) => new Promise((resolve, reject) => {
-  db.all(sql, params, (err, rows) => {
-    if (err) {
-      reject(err);
-    } else {
-      resolve(rows);
-    }
-  });
-});
+  return { lastID, changes };
+};
 
-const getAsync = (sql, params = []) => new Promise((resolve, reject) => {
-  db.get(sql, params, (err, row) => {
-    if (err) {
-      reject(err);
-    } else {
-      resolve(row);
+const allAsync = async (sql, params = []) => {
+  const database = await loadDatabase();
+  const stmt = database.prepare(sql);
+  try {
+    stmt.bind(params);
+    const rows = [];
+    while (stmt.step()) {
+      rows.push(stmt.getAsObject());
     }
-  });
-});
+    return rows;
+  } finally {
+    stmt.free();
+  }
+};
+
+const getAsync = async (sql, params = []) => {
+  const database = await loadDatabase();
+  const stmt = database.prepare(sql);
+  try {
+    stmt.bind(params);
+    if (stmt.step()) {
+      return stmt.getAsObject();
+    }
+    return undefined;
+  } finally {
+    stmt.free();
+  }
+};
+
+
 
 app.use(cors());
 app.use(express.json());
@@ -361,18 +470,25 @@ const shutdown = (shouldExit = false) => new Promise((resolve) => {
   shuttingDown = true;
   console.log('\nกำลังปิดเซิร์ฟเวอร์...');
 
-  const finalize = () => {
-    db.close((err) => {
-      if (err) {
-        console.error('ปิดฐานข้อมูลไม่สำเร็จ:', err);
-      } else {
+  const finalize = async () => {
+    try {
+      await persistQueue;
+      await persistDatabase();
+      if (db) {
+        db.close();
+        db = null;
+        dbPromise = null;
         console.log('ปิดการเชื่อมต่อฐานข้อมูลเรียบร้อย');
       }
+    } catch (err) {
+      console.error('ปิดฐานข้อมูลไม่สำเร็จ:', err);
+    } finally {
+      persistQueue = Promise.resolve();
       if (shouldExit) {
         process.exit(0);
       }
       resolve();
-    });
+    }
   };
 
   if (server.listening) {
@@ -389,12 +505,33 @@ const gracefulShutdown = () => {
   shutdown(true);
 };
 
-const startServer = (port = PORT, host = HOST) => {
+const startServer = async (port = PORT, host = HOST) => {
+  await loadDatabase();
+
   if (serverInstance && serverInstance.listening) {
-    return Promise.resolve(serverInstance);
+    return serverInstance;
   }
 
   return new Promise((resolve, reject) => {
+    const logAddresses = () => {
+      const address = server.address();
+      const resolvedHost = address && address.address ? address.address : host;
+      const resolvedPort = address && address.port ? address.port : port;
+      console.log(`Server running on http://${resolvedHost}:${resolvedPort}`);
+
+      if (resolvedHost === '0.0.0.0' || resolvedHost === '::') {
+        const os = require('os');
+        const nets = os.networkInterfaces();
+        Object.values(nets).forEach((interfaces = []) => {
+          interfaces
+            .filter((iface) => !iface.internal && iface.family === 'IPv4')
+            .forEach((iface) => {
+              console.log(`  ➜ http://${iface.address}:${resolvedPort}`);
+            });
+        });
+      }
+    };
+
     const onError = (err) => {
       server.removeListener('listening', onListening);
       reject(err);
@@ -403,10 +540,7 @@ const startServer = (port = PORT, host = HOST) => {
     const onListening = () => {
       server.removeListener('error', onError);
       serverInstance = server;
-      const address = server.address();
-      const resolvedHost = address && address.address ? address.address : host;
-      const resolvedPort = address && address.port ? address.port : port;
-      console.log(`Server running on http://${resolvedHost}:${resolvedPort}`);
+      logAddresses();
       shuttingDown = false;
       resolve(serverInstance);
     };

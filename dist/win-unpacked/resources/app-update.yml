@@ -1,0 +1,4 @@
+owner: titee12345678
+repo: calibration-app
+provider: github
+updaterCacheDirName: calibration-app-updater

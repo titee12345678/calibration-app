@@ -1,0 +1,31 @@
+directories:
+  output: dist
+  buildResources: electron/resources
+appId: com.calibration.app
+productName: Calibration App
+asarUnpack:
+  - node_modules/sql.js/dist/sql-wasm.wasm
+files:
+  - filter:
+      - electron/**/*
+      - public/**/*
+      - server.js
+      - package.json
+      - data/**/*
+      - uploads/**/*
+      - node_modules/**/*
+extraResources:
+  - from: data/
+    to: data
+    filter:
+      - '**/*'
+  - from: uploads/
+    to: uploads
+    filter:
+      - '**/*'
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+electronVersion: 31.7.7

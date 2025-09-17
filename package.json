@@ -5,6 +5,7 @@
   "main": "electron/main.js",
   "scripts": {
     "start": "node server.js",
+    "start:lan": "cross-env HOST=0.0.0.0 node server.js",
     "electron:start": "electron electron/main.js",
     "preelectron:build": "rimraf dist",
     "electron:build": "electron-builder --win --x64"
@@ -18,12 +19,13 @@
     "express": "^4.19.2",
     "multer": "^1.4.5-lts.1",
     "socket.io": "^4.7.5",
-    "sqlite3": "^5.1.7"
+    "sql.js": "^1.9.0"
   },
   "devDependencies": {
     "electron": "^31.0.2",
     "electron-builder": "^24.13.3",
-    "rimraf": "^5.0.5"
+    "rimraf": "^5.0.5",
+    "cross-env": "^7.0.3"
   },
   "build": {
     "appId": "com.calibration.app",
@@ -33,7 +35,7 @@
       "buildResources": "electron/resources"
     },
     "asarUnpack": [
-      "node_modules/sqlite3/**"
+      "node_modules/sql.js/dist/sql-wasm.wasm"
     ],
     "files": [
       "electron/**/*",
@@ -41,7 +43,8 @@
       "server.js",
       "package.json",
       "data/**/*",
-      "uploads/**/*"
+      "uploads/**/*",
+      "node_modules/**/*"
     ],
     "extraResources": [
       {

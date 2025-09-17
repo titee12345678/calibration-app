@@ -6,7 +6,7 @@ The server is configured to bind to `127.0.0.1` by default, so it only accepts t
 
 ## Prerequisites
 
-- Node.js 18 or newer
+- Node.js 18 หรือใหม่กว่า (รองรับ 23.x)
 - npm (bundled with Node.js)
 
 ## Getting started
@@ -21,6 +21,15 @@ The server is configured to bind to `127.0.0.1` by default, so it only accepts t
    ```
 3. Open your browser and navigate to [http://localhost:3000](http://localhost:3000).
 
+### Share on local Wi‑Fi
+
+- ให้คอมพิวเตอร์และอุปกรณ์เคลื่อนที่อยู่ในเครือข่ายเดียวกัน
+- รันเซิร์ฟเวอร์ในโหมด LAN:
+  ```bash
+  npm run start:lan
+  ```
+- คอนโซลจะแสดง IP ภายใน เช่น `http://192.168.x.x:3000` ใช้ URL นี้เปิดจากมือถือ/แท็บเล็ตได้
+
 ## Desktop build with Electron
 
 - Launch the desktop shell during development:
@@ -33,6 +42,7 @@ The server is configured to bind to `127.0.0.1` by default, so it only accepts t
   npm run electron:build
   ```
   The build script automatically deletes any previous `dist/` directory before producing a fresh installer.
+
 
 When packaged, the app stores its SQLite database and uploaded images inside the Electron user data folder (e.g. `%APPDATA%/Calibration App/`). You can still override `DATA_DIR` or `UPLOADS_DIR` to point elsewhere if needed.
 
