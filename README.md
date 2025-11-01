@@ -16,7 +16,7 @@ The server is configured to bind to `127.0.0.1` by default, so it only accepts t
    npm install
    ```
 2. Start the server:
-   ```bash
+  
    npm start
    ```
 3. Open your browser and navigate to [http://localhost:3000](http://localhost:3000).
